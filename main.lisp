@@ -45,7 +45,7 @@
     (ecase e
       ((ssa) (incf xssa))
       ((tailcall) (incf xtailcall))
-      ((tailcall) (incf xtailcall))
+      ((temps) (incf xtemps))
       ((deljumps) (incf xdeljumps))
       ((dce) (incf xdce))
       ((inline) (incf xinline))
@@ -61,16 +61,16 @@
       ((stack-protector-all) (setf sspflag 1))
       ((freestanding) (setf freestanding 1))
       ((pack-struct) (setf pragma_allpacked 1))
-      (else
+      (t
        (if (and (consp e) (eq (car e) 'pack-struct))
            (setf pragma_allpacked (cdr e))
            (error "unknown -f option ~a" e))))))
 
 
 
-(defun main (#:key Xb Xd Xe Xi Xn Xo Xp Xs Xt Xx 
-                   Zb Zc Ze Zf Zg Zn Zo Zr Zs Zt Zu Zx
-                   f g k m p s w ww x)
+(defun main (&key Xb Xd Xe Xi Xn Xo Xp Xs Xt Xx 
+	       Zb Zc Ze Zf Zg Zn Zo Zr Zs Zt Zu Zx
+	       f g k m p s w ww x)
   (setf bdebug 0 ddebug 0 edebug 0 idebug 0 ndebug 0 
         odebug 0 pdebug 0 sdebug 0 tdebug 0 xdebug 0 wdebug 0
         b2debug 0 c2debug 0 e2debug 0 f2debug 0 g2debug 0 o2debug 0
@@ -96,7 +96,7 @@
   (when Ze (incf e2debug)) ; print tree upon pass2 enter
   (when Zf (incf f2debug)) ; instruction matching
   (when Zg (incf g2debug)) ; print flow graphs
-  (when Zn (incf n2debug)) ; node allocation
+  (when Zn (incf ndebug)) ; node allocation
   (when Zo (incf o2debug)) ; instruction generator
   (when Zr (incf r2debug)) ; register alloc/graph coloring
   (when Zs (incf s2debug)) ; shape matching
@@ -111,7 +111,7 @@
   (when p (incf pflag)) ; Profiling
   (when s (incf sflag)) ; Statistics
   (when w (incf wdebug)) ; No warnings emitted
-  (when ww (incf (Wflags ww)) ; Enable different warnings
+  (when ww (Wflags ww)) ; Enable different warnings
   (when x (xopt x)) ; Enable different warnings
 
   (mkdope)

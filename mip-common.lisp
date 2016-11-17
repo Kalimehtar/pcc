@@ -157,6 +157,8 @@
       (return 0)))
   1)
 
+(defvar issyshdr 0)
+
 (defun Wflags (ww)
   (let ((isset 1)
         (iserr 0)
@@ -172,7 +174,7 @@
         (setf isset 0 str (subseq str 3)))
       (when (string= (subseq str 0 6) "error=")
         (setf iserr 1 str (subseq str 6)))
-      (let ((w (find str warnings #:key #'_warning-flag #:test #'string=)))
+      (let ((w (find str warnings :key #'_warning-flag :test #'string=)))
         (if w
             (cond 
              ((/= isset 0) 
@@ -185,15 +187,15 @@
 (defun warner (type &rest ap)
   (unless (and (eq type 'Wtruncate) (> issyshdr 0)) ; Too many false positives
     (let* (_t
-           (str (subseq (string-downcase (symbol-name ww)) 1))
-           (w (find str warnings #:key #'_warning-flag #:test #'string=)))
+           (str (subseq (string-downcase (symbol-name type)) 1))
+           (w (find str warnings :key #'_warning-flag :test #'string=)))
       (unless (= (_warning-warn w) 0) ; no warning
        (cond
         ((/= (_warning-err w) 0) (setf _t "error") (incerr))
         (t 
          (setf _t "warning")))
        (format *error-output* "~a:~a: ~a: " ftitle lineno _t)
-       (apply #'format *error-output* s ap)
+       (apply #'format *error-output* (_warning-fmt w) ap)
        (format *error-output* "~%")))))
 
 (defun mkdope ()

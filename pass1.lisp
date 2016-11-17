@@ -23,7 +23,7 @@
 (defconstant IMAG            (+ MAXTYPES 4))
 (defconstant LIMAG           (+ MAXTYPES 5))
 (defconstant FCOMPLEX        (+ MAXTYPES 6))
-(defconstant COMPLEX         (+ MAXTYPES 7))
+(defconstant _COMPLEX         (+ MAXTYPES 7))
 (defconstant LCOMPLEX        (+ MAXTYPES 8))
 (defconstant ENUMTY          (+ MAXTYPES 9))
 
@@ -44,33 +44,49 @@
 ; */
 (defstruct arglist type df sap)
 
-(defstruct p1node n_op n_type n_qual n_5 n_ap n_f) 
+(defvar TNULL (INCREF FARG)) ; pointer to FARG -- impossible type
+(defvar TELLIPSIS (INCREF (INCREF FARG)))
+
+;/*
+;* Symbol table definition.
+;*/
+
+(defstruct symtab next soffset sclass slevel sflags sname stype squal sdf sap)
+
+(defun ISSOU (ty) (or (= ty STRTY) (= ty UNIONTY)))
+
+
+(defstruct node
+  op type qual name df label
+  ap left val slval right rval sp dcon)
+
+(defmacro slval (p v) (setf (node-val p) v))
  
-typedef struct p1node {
-        int     n_op;
-        TWORD   n_type;
-        TWORD   n_qual;
-        union {
-                char *  _name;
-                union   dimfun *_df;
-        } n_5;
-        struct attr *n_ap;
-        union {
-                struct {
-                        union {
-                                struct p1node *_left;
-                                CONSZ _val;
-                        } n_l;
-                        union {
-                                struct p1node *_right;
-                                int _rval;
-                                struct symtab *_sp;
-                        } n_r;
-                } n_u;
-                struct {
-                        struct flt *_dcon;
-                        struct flt *_ccon;
-                };
-        } n_f;
-} P1ND;
+;typedef struct p1node {
+;        int     n_op;
+;        TWORD   n_type;
+;        TWORD   n_qual;
+;        union {
+;                char *  _name;
+;                union   dimfun *_df;
+;        } n_5;
+;        struct attr *n_ap;
+;        union {
+;                struct {
+;                        union {
+;                                struct p1node *_left;
+;                                CONSZ _val;
+;                        } n_l;
+;                        union {
+;                                struct p1node *_right;
+;                                int _rval;
+;                                struct symtab *_sp;
+;                        } n_r;
+;                } n_u;
+;                struct {
+;                        struct flt *_dcon;
+;                        struct flt *_ccon;
+;                };
+;        } n_f;
+;} P1ND;
 
