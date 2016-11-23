@@ -17,15 +17,15 @@
 
 (defconstant NOOFFSET        -10201)
 
-(defconstant SIGNED          (+ MAXTYPES 1))
-(defconstant FARG            (+ MAXTYPES 2))
-(defconstant FIMAG           (+ MAXTYPES 3))
-(defconstant IMAG            (+ MAXTYPES 4))
-(defconstant LIMAG           (+ MAXTYPES 5))
-(defconstant FCOMPLEX        (+ MAXTYPES 6))
-(defconstant _COMPLEX         (+ MAXTYPES 7))
-(defconstant LCOMPLEX        (+ MAXTYPES 8))
-(defconstant ENUMTY          (+ MAXTYPES 9))
+;(defconstant SIGNED          (+ MAXTYPES 1))
+;(defconstant FARG            (+ MAXTYPES 2))
+;(defconstant FIMAG           (+ MAXTYPES 3))
+;(defconstant IMAG            (+ MAXTYPES 4))
+;(defconstant LIMAG           (+ MAXTYPES 5))
+;(defconstant FCOMPLEX        (+ MAXTYPES 6))
+;(defconstant _COMPLEX         (+ MAXTYPES 7))
+;(defconstant LCOMPLEX        (+ MAXTYPES 8))
+;(defconstant ENUMTY          (+ MAXTYPES 9))
 
 
 ;/*
@@ -38,23 +38,22 @@
 ; */
 (defstruct dimfun ddim dfun)
 
-
 ;/*
 ; * Argument list member info when storing prototypes.
 ; */
 (defstruct arglist type df sap)
 
-(defvar TNULL (INCREF FARG)) ; pointer to FARG -- impossible type
-(defvar TELLIPSIS (INCREF (INCREF FARG)))
+(defvar TNULL
+  (INCREF (make-stype :id 'FARG))) ; pointer to FARG -- impossible type
+(defvar TELLIPSIS (INCREF (INCREF (make-stype :id 'FARG))))
 
 ;/*
 ;* Symbol table definition.
 ;*/
 
-(defstruct symtab next soffset sclass slevel sflags sname stype squal sdf sap)
+(defstruct symtab snext soffset sclass slevel sflags sname stype squal sdf sap)
 
-(defun ISSOU (ty) (or (= ty STRTY) (= ty UNIONTY)))
-
+(defun ISSOU (ty) (member (stype-id ty) '(STRTY UNIONTY)))
 
 (defstruct node
   op type qual name df label

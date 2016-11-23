@@ -1,5 +1,25 @@
 (in-package #:pcc)
 
+;/*
+;* Free a node, and return its left descendant.
+;* It is up to the caller to know whether the return value is usable.
+;*/
+#|
+(defun nfree (p)
+  (unless p
+    (_cerror "freeing blank node!"))
+  (when (eq (node-op p) 'FREE)
+    (_cerror "freeing FREE node ~a" p))
+  (when ndebug
+    (format t "freeing node ~a~%" p))
+  (let ((l (node-left p)))
+    (setf (node-op p) 'FREE
+	  (node-left p) freelink
+	  freelink p)
+    (decf usednodes)
+    l))
+  |#
+
 (defstruct (dopest (:constructor make-dopest (dopeop opst dopeval)))
   dopeop opst dopeval)
 
@@ -182,7 +202,8 @@
               (setf (_warning-warn w) 1))
              ((/= iserr 0) (setf (_warning-err w) 0))
              (t (setf (_warning-warn w) 0)))
-            (format *error-output* "unrecognised warning option '~a'~%" str)))))))
+            (format *error-output*
+		    "unrecognised warning option '~a'~%" str)))))))
 
 (defun warner (type &rest ap)
   (unless (and (eq type 'Wtruncate) (> issyshdr 0)) ; Too many false positives
@@ -198,10 +219,50 @@
        (apply #'format *error-output* (_warning-fmt w) ap)
        (format *error-output* "~%")))))
 
+(defvar usednodes)
+(defvar freelink)
+
+(defun talloc ()
+  (incf usednodes)
+  (cond
+    (freelink
+     (let ((p freelink))
+       (setf freelink (node-left p))
+       (unless (eq (node-op p) 'FREE)
+	 (_cerror "node not FREE: ~a" p))
+       (when ndebug
+	 (format t "alloc node ~a from freelist~%" p))
+       p))
+    (t
+     (let ((p (make-node :op 'FREE)))
+       (when ndebug
+	 (format t "alloc node ~a from memory~%" p))
+       p))))
+
 (defun mkdope ()
   (setf nerrors 0 warniserr 0)
   (dolist (q indope)
     (setf (gethash (dopest-dopeop q) dope) (dopest-dopeval q))
     (setf (gethash (dopest-dopeop q) opst) (dopest-opst q))))
 
-  
+(defun newstring (s)
+  (copy-seq s))
+
+;/*
+;* Attribute functions.
+;*/
+
+(defun attr_new (type nelem)
+  (declare (type symbol type)
+	   (fixnum nelem))
+  (make-attr :atype type :sz nelem
+	     :aa (make-array (list nelem)
+			     :initial-element (make-aarg :isrg 0
+							 :sarg 0
+							 :varg 0))))
+
+;; Search for attribute type in list ap.  Return entry or NULL.
+(defun attr_find (ap type)
+  (if (and ap (not (eq (attr-atype ap) type)))
+      (attr_find (attr-next ap) type)
+      ap))

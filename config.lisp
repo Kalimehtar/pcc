@@ -1,4 +1,7 @@
-(in-package #:pcc)
+(defpackage #:pcc-config
+  (:use #:cl))
+
+(in-package #:pcc-config)
 
 (defconstant ELFABI 1)
 

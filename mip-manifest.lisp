@@ -5,6 +5,7 @@
 
 (in-package #:pcc)
 
+#|
 (defconstant UNDEF           0) ;       /* free symbol table entry */
 (defconstant BOOL            1) ;       /* function argument */
 (defconstant _CHAR            2)
@@ -52,18 +53,64 @@
 (defconstant BTSHIFT 5)
 (defconstant TSHIFT  2)
 
-(defmacro MODTYPE (x y) `(setf ,x (logior (logandc2 ,x BTMASK) ,y)))
-(defun BTYPE (x) (logand x BTMASK))
-(defun ISLONGLONG (x) (or (= x LONGLONG) (= x ULONGLONG)))
-(defun ISUNSIGNED (x) (and (<= x ULONGLONG) (= (logand x 1) 1)))
-(defun UNSIGNABLE (x) (and (<= _CHAR x ULONGLONG) (not (ISUNSIGNED x))))
-(defun ISINTEGER (x) (<= BOOL x ULONGLONG))
-(defun ISPTR (x) (= (logand x TMASK) PTR))
-(defun ISFTN (x) (= (logand x TMASK) FTN)) ; /* is x a function type? */
-(defun ISARY (x) (= (logand x TMASK) ARY)) ; /* is x an array type? */
-(defun ISCON (x) (= (logand x CON) CON)) ; /* is x const? */
-(defun ISVOL (x) (= (logand x VOL) VOL)) ; /* is x volatile? */
-(defun INCREF (x) (logior (ash (logandc2 x BTMASK) TSHIFT) PTR (logand x BTMASK)))
-(defun INCQAL (x) (logior (ash (logandc2 x BTMASK) TSHIFT) (logand x BTMASK)))
-(defun DECREF (x) (logior (logandc2 (ash x (- TSHIFT)) BTMASK) (logand x BTMASK)))
-(defun DECQAL (x) (logior (logandc2 (ash x (- TSHIFT)) BTMASK) (logand x BTMASK)))
+|#
+
+;;; Monk: changed to lists of symbols
+
+;; id -- base type
+;; mod -- list of lists of modifiers
+(defstruct stype id mod)
+
+;(defconstant BTMASK '(UNDEF BOOL CHAR UCHAR SHORT USHORT INT UNSIGNED
+;		      LONG ULONG LONGLONG ULONGLONG FLOAT DOUBLE LDOUBLE
+;		      STRTY UNIONTY XTYPE VOID))
+;(defconstant TMASK '(PTR FTN ARY))
+
+
+(defun union-mod (l1 l2)
+  (cond
+    ((null l1) l2)
+    ((null l2) l1)
+    (t (cons (union (car l1) (car l2)) (union-mod (cdr l1) (cdr l2))))))
+;; set basic type of y to x
+(defun MODTYPE (x y)
+  (setf (stype-id x) (stype-id y)
+	(stype-mod x) (union-mod (stype-mod x) (stype-mod y))))
+(defun BTYPE (x) (stype-id x)) ; basic type of x
+(defun ISLONGLONG (x)
+  (and (null (stype-mod x))
+       (member (stype-id x) '(LONGLONG ULONGLONG))))
+(defun ISUNSIGNED (x)
+  (and (null (stype-mod x))
+       (member (stype-id x)
+	       '(BOOL UCHAR USHORT UNSIGNED ULONG ULONGLONG))))
+(defun UNSIGNABLE (x)
+  (and (null (stype-mod x))
+       (member (stype-id x)
+	       '(CHAR SHORT INT LONG LONGLONG))))
+(defun ISINTEGER (x)
+  (and (null (stype-mod x))
+       (member (stype-id x)
+	       '(BOOL CHAR UCHAR SHORT USHORT INT UNSIGNED
+		 LONG ULONG LONGLONG ULONGLONG))))
+(defun ISPTR (x) (member 'PTR (car (stype-mod x))))
+
+(defun ISFTN (x)
+  (member 'FTN (car (stype-mod x)))) ; /* is x a function type? */
+(defun ISARY (x)
+  (member 'ARY (car (stype-mod x)))) ; /* is x an array type? */
+(defun ISCON (x) (member 'CON (car (stype-mod x)))) ; /* is x const? */
+(defun ISVOL (x) (member 'VOL (car (stype-mod x)))) ; /* is x volatile? */
+(defun INCREF (x)
+  (make-stype :id (stype-id x)
+	      :mod (cons '(PTR) (stype-mod x))))
+(defun INCQAL (x)
+  (make-stype :id (stype-id x)
+	      :mod (cons '() (stype-mod x))))
+(defun DECREF (x)
+  (make-stype :id (stype-id x)
+	      :mod (cdr (stype-mod x))))
+(defun DECQAL (x) (DECREF x))
+
+(defstruct interpass
+  type lineno node locc lbl name asm off)

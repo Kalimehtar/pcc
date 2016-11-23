@@ -55,6 +55,7 @@
       ((uchar) (incf xuchar)))))
 
 (defun fflags (f)
+  #-PASS2
   (dolist (e f)
     (case e
       ((stack-protector) (setf sspflag 1))
@@ -79,30 +80,34 @@
         xssa 0 xtailcall 0 xtemps 0 xdeljumps 0 xdce 0 xinline 0 
         xccp 0 xgnu89 0 xgnu99 0 xuchar 0 freestanding 0
         pragma_allpacked 0)
-  
-  (when Xb (incf bdebug)) ; buildtree
-  (when Xd (incf ddebug)) ; declarations
-  (when Xe (incf edebug)) ; pass1 exit 
-  (when Xi (incf idebug)) ; initializations
-  (when Xn (incf ndebug)) ; node allocation 
-  (when Xo (incf odebug)) ; optim
-  (when Xp (incf pdebug)) ; prototype
-  (when Xs (incf sdebug)) ; inline
-  (when Xt (incf tdebug)) ; type match
-  (when Xx (incf xdebug)) ; MD code
 
-  (when Zb (incf b2debug)) ; basic block and SSA building
-  (when Zc (incf c2debug)) ; code printout
-  (when Ze (incf e2debug)) ; print tree upon pass2 enter
-  (when Zf (incf f2debug)) ; instruction matching
-  (when Zg (incf g2debug)) ; print flow graphs
-  (when Zn (incf ndebug)) ; node allocation
-  (when Zo (incf o2debug)) ; instruction generator
-  (when Zr (incf r2debug)) ; register alloc/graph coloring
-  (when Zs (incf s2debug)) ; shape matching
-  (when Zt (incf t2debug)) ; type matching
-  (when Zu (incf u2debug)) ; Sethi-Ullman debugging
-  (when Zx (incf x2debug)) ; target specific
+  #-PASS2
+  (progn
+    (when Xb (incf bdebug)) ; buildtree
+    (when Xd (incf ddebug)) ; declarations
+    (when Xe (incf edebug)) ; pass1 exit 
+    (when Xi (incf idebug)) ; initializations
+    (when Xn (incf ndebug)) ; node allocation 
+    (when Xo (incf odebug)) ; optim
+    (when Xp (incf pdebug)) ; prototype
+    (when Xs (incf sdebug)) ; inline
+    (when Xt (incf tdebug)) ; type match
+    (when Xx (incf xdebug))) ; MD code
+
+  #-PASS1
+  (progn
+    (when Zb (incf b2debug)) ; basic block and SSA building
+    (when Zc (incf c2debug)) ; code printout
+    (when Ze (incf e2debug)) ; print tree upon pass2 enter
+    (when Zf (incf f2debug)) ; instruction matching
+    (when Zg (incf g2debug)) ; print flow graphs
+    (when Zn (incf ndebug)) ; node allocation
+    (when Zo (incf o2debug)) ; instruction generator
+    (when Zr (incf r2debug)) ; register alloc/graph coloring
+    (when Zs (incf s2debug)) ; shape matching
+    (when Zt (incf t2debug)) ; type matching
+    (when Zu (incf u2debug)) ; Sethi-Ullman debugging
+    (when Zx (incf x2debug))) ; target specific
 
   (when f (fflags f))   ; Language
   (when g (incf gflag)) ; Debugging
@@ -115,5 +120,26 @@
   (when x (xopt x)) ; Enable different warnings
 
   (mkdope)
+  #-PASS2
+  (progn
+    (setf lineno 1)
+    #+GCC_COMPAT (gcc_init)
+    ;/* starts past any of the above */
+    (setf reached t)
+    
   )
+  
+(defun prtstats ()
+  (format *error-output* "Name table entries:            ~a pcs~%" nametabs)
+  (format *error-output* "String table entries:            ~a pcs~%" strtabs)
+  (format *error-output* "Argument list unions:            ~a pcs~%"
+	  arglistcnt)
+  (format *error-output* "Dimension/function unions:            ~a pcs~%"
+	  dimfuncnt)
+  (format *error-output* "Struct/union/enum blocks:            ~a pcs~%"
+	  suedefcnt)
+  (format *error-output* "Inline control blocks:            ~a pcs~%"
+	  inlstatcnt)
+  (format *error-output* "Permanent symtab entries:            ~a pcs~%"
+	  symtabcnt))
   
