@@ -1,41 +1,97 @@
-(in-package #:pcc)
+(defpackage #:pcc.pass1
+  (:use #:cl #:pcc.mip-manifest)
+  (:export
+   #:symtab
+   #:make-p1nd
+   #:p1nd-n_op
+   #:p1nd-n_type
+   #:p1nd-n_qual
+   #:p1nd-n_ap
+   #:p1nd-n_name
+   #:p1nd-n_df
+   #:p1nd-n_val
+   #:p1nd-n_left
+   #:p1nd-n_right
+   #:p1nd-n_rval
+   #:p1nd-n_sp
+   #:p1nd-n_dcon
+   #:p1nd-n_ccon
+   #:getlval
+   #:setlval
 
-(defconstant STLS            #o00010) ;   /* Thread Local Support variable */
-(defconstant SINSYS          #o00020) ;   /* Declared in system header */
-(defconstant SSTMT           SINSYS) ;  /* Allocate symtab on statement stack */
-(defconstant SNOCREAT        #o00040) ;   /* don't create a symbol in lookup() */
-(defconstant STEMP           #o00100) ;   /* Allocate symtab from temp or perm mem */
-(defconstant SDYNARRAY       #o00200) ;   /* symbol is dynamic array on stack */
-(defconstant SINLINE         #o00400) ;   /* function is of type inline */
-(defconstant SBLK            SINLINE) ; /* Allocate symtab from blk mem */
-(defconstant STNODE          #o01000) ;   /* symbol shall be a temporary node */
-(defconstant SBUILTIN        #o02000) ;   /* this is a builtin function */
-(defconstant SASG            #o04000) ;   /* symbol is assigned to already */
-(defconstant SLOCAL1         #o010000) 
-(defconstant SLOCAL2         #o020000) 
-(defconstant SLOCAL3         #o040000) 
+   ;; from mip-manifest
+   #:stype
+   #:stype-id
+   #:stype-mod
+   #:make-stype
+   #:type-class
+   #:gflag
+   #:kflag
+   #:pflag
+   #:sspflag
+   #:xssa
+   #:xtailcall
+   #:xtemps
+   #:xdeljumps
+   #:xdce
 
-(defconstant NOOFFSET        -10201)
+   ;; from mip-node
+   #:make-attr
+   #:attr-next
+   #:attr-atype
+   #:attr-aa
+   #:make-node
+   #:node-n_op
+   #:node-n_type
+   #:node-n_qual
+   #:node-n_su
+   #:node-n_ap
+   #:node-n_reg
+   #:node-n_regw
+   #:node-n_name
+   #:node-n_df
+   #:node-n_label   
+   #:node-n_val
+   #:node-n_left
+   #:node-n_slval
+   #:node-n_right
+   #:node-n_rval
+   #:node-n_sp
+   #:node-n_dcon
+   #:getlval
+   #:setlval
+   ))
 
-;(defconstant SIGNED          (+ MAXTYPES 1))
-;(defconstant FARG            (+ MAXTYPES 2))
-;(defconstant FIMAG           (+ MAXTYPES 3))
-;(defconstant IMAG            (+ MAXTYPES 4))
-;(defconstant LIMAG           (+ MAXTYPES 5))
-;(defconstant FCOMPLEX        (+ MAXTYPES 6))
-;(defconstant _COMPLEX         (+ MAXTYPES 7))
-;(defconstant LCOMPLEX        (+ MAXTYPES 8))
-;(defconstant ENUMTY          (+ MAXTYPES 9))
+(in-package #:pcc.pass1)
 
+(deftype storage-class ()
+  '(member SNULL AUTO EXTERN STATIC REGISTER EXTDEF THLOCAL
+    KEYWORD MOS PARAM STNAME MOU UNAME TYPEDEF ENAME MOE USTATIC))
 
-;/*
+(deftype flag-class ()
+  '(member SNORMAL STAGNAME SLBLNAME SMOSNAME SSTRING NSTYPES SMASK))
+
+(deftype flag-mod ()
+  '(member
+    STLS ; Thread Local Support variable
+    SINSYS ; Declared in system header
+    SSTMT ; Allocate symtab on statement stack
+    SNOCREAT ; don't create a symbol in lookup()
+    STEMP ;  Allocate symtab from temp or perm mem
+    SDYNARRAY ; symbol is dynamic array on stack
+    SINLINE ; function is of type inline
+    SBLK ; Allocate symtab from blk mem
+    STNODE ; symbol shall be a temporary node
+    SBUILTIN ; this is a builtin function
+    SASG ; symbol is assigned to already
+    SLOCAL1 SLOCAL2 SLOCAL3))
+    
 ; * Dimension/prototype information.
 ; *      ddim > 0 holds the dimension of an array.
 ; *      ddim < 0 is a dynamic array and refers to a tempnode.
 ; *      ...unless:
 ; *              ddim == NOOFFSET, an array without dimenston, "[]"
 ; *              ddim == -1, dynamic array while building before defid.
-; */
 (defstruct dimfun ddim dfun)
 
 ;/*
@@ -51,15 +107,86 @@
 ;* Symbol table definition.
 ;*/
 
-(defstruct symtab snext soffset sclass slevel sflags sname stype squal sdf sap)
+(defstruct symtab
+  (snext nil :type (or null symtab)) ; link to other symbols in the same scope
+  (soffset 0 :type fixnum)           ; offset or value
+  (sclass 0 :type fixnum)            ; storage class
+  (slevel 0 :stype fixnum)           ; scope level
+  (sflags (make-stype) :type stype)  ; flags, see below
+  (sname "" :type string) ; Symbol name
+  (stype 'UNDEF :type symbol) ; type
+  (squal 0) ; qualifier
+  sdf  ; ptr to the dimension/prototype array
+  (sap nil :type list)) ; the base type attribute list
 
 (defun ISSOU (ty) (member (stype-id ty) '(STRTY UNIONTY)))
 
-(defstruct node
-  op type qual name df label
-  ap left val slval right rval sp dcon)
+(defstruct n_u n_l n_r)
+(defstruct n_f (n_u (make-n_u) :type n_u) _dcon _ccon)
+(defstruct p1nd 
+  (n_op 'UNDEF :type symbol)
+  n_type
+  n_qual
+  n_5
+  n_ap
+  (n_f (make-n_f) :type n_f))
 
-(defmacro slval (p v) (setf (node-val p) v))
+(defun p1nd-n_name (n)
+  (p1nd-n_5 n))
+
+(defun (setf p1nd-n_name) (val n)
+  (setf (p1nd-n_5 n) val))
+
+(defun p1nd-n_df (n)
+  (p1nd-n_5 n))
+
+(defun (setf p1nd-n_df) (val n)
+  (setf (p1nd-n_5 n) val))
+
+(defun p1nd-n_left (n)
+  (n_u-n_l (n_f-n_u (p1nd-n_f n))))
+
+(defun (setf p1nd-n_left) (val n)
+  (setf (n_u-n_l (n_f-n_u (p1nd-n_f n))) val))
+
+(defun p1nd-n_val (n)
+  (n_u-n_l (n_f-n_u (p1nd-n_f n))))
+
+(defun (setf p1nd-n_val) (val n)
+  (setf (n_u-n_l (n_f-n_u (p1nd-n_f n))) val))
+
+(defun p1nd-n_right (n)
+  (n_u-n_r (n_f-n_u (p1nd-n_f n))))
+
+(defun (setf p1nd-n_right) (val n)
+  (setf (n_u-n_r (n_f-n_u (p1nd-n_f n))) val))
+
+(defun p1nd-n_rval (n)
+  (n_u-n_r (n_f-n_u (p1nd-n_f n))))
+
+(defun (setf p1nd-n_rval) (val n)
+  (setf (n_u-n_r (n_f-n_u (p1nd-n_f n))) val))
+
+(defun p1nd-n_sp (n)
+  (n_u-n_r (n_f-n_u (p1nd-n_f n))))
+
+(defun (setf p1nd-n_sp) (val n)
+  (setf (n_u-n_r (n_f-n_u (p1nd-n_f n))) val))
+
+(defun p1nd-n_dcon (n)
+  (n_f-_dcon (p1nd-n_f n)))
+
+(defun (setf p1nd-n_dcon) (val n)
+  (setf (n_f-_dcon (p1nd-n_f n)) val))
+
+(defun p1nd-n_ccon (n)
+  (n_f-_ccon (p1nd-n_f n)))
+
+(defun (setf p1nd-n_ccon) (val n)
+  (setf (n_f-_ccon (p1nd-n_f n)) val))
+
+(defun glval (p) (p1nd-n_val p))
+(defmacro slval (p v) `(setf (p1nd-n_val ,p) ,v))
  
 ;typedef struct p1node {
 ;        int     n_op;

@@ -1,4 +1,8 @@
-(in-package #:pcc)
+(defpackage #:pcc.pftn
+  (:use #:cl
+	#:pcc.pass1))
+
+(in-package #:pcc.pftn)
 
 (defvar blevel 0)
 (defvar reached nil) ;; Monk: boolean

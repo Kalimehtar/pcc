@@ -1,33 +1,60 @@
+(defpackage #:pcc.mip-manifest
+  (:use #:cl #:pcc.mip-node)
+  (:export
+   #:stype
+   #:stype-id
+   #:stype-mod
+   #:make-stype
+   #:type-class
+   #:gflag
+   #:kflag
+   #:pflag
+   #:sspflag
+   #:xssa
+   #:xtailcall
+   #:xtemps
+   #:xdeljumps
+   #:xdce
 
+   ;; from node
+   #:make-attr
+   #:attr-next
+   #:attr-atype
+   #:attr-aa
+   #:make-node
+   #:node-n_op
+   #:node-n_type
+   #:node-n_qual
+   #:node-n_su
+   #:node-n_ap
+   #:node-n_reg
+   #:node-n_regw
+   #:node-n_name
+   #:node-n_df
+   #:node-n_label   
+   #:node-n_val
+   #:node-n_left
+   #:node-n_slval
+   #:node-n_right
+   #:node-n_rval
+   #:node-n_sp
+   #:node-n_dcon
+   #:getlval
+   #:setlval
+   ))
 ; * Type names, used in symbol table building.
 ; * The order of the integer types are important.
 ; * Signed types must have bit 0 unset, unsigned types set (used below).
 
-(in-package #:pcc)
+(in-package #:pcc.manifest)
+
+(deftype type-class ()
+  '(member UNDEF BOOL CHAR UCHAR SHORT USHORT INT UNSIGNED LONG
+    ULONG LONGLONG ULONGLONG FLOAT DOUBLE  STRTY  UNIONTY
+    XTYPE ; Extended target-specific type
+    VOID))
 
 #|
-(defconstant UNDEF           0) ;       /* free symbol table entry */
-(defconstant BOOL            1) ;       /* function argument */
-(defconstant _CHAR            2)
-(defconstant UCHAR           3)
-(defconstant SHORT           4)
-(defconstant USHORT          5)
-(defconstant INT             6)
-(defconstant UNSIGNED        7)
-(defconstant LONG            8)
-(defconstant ULONG           9)
-(defconstant LONGLONG        10)
-(defconstant ULONGLONG       11)
-(defconstant _FLOAT           12)
-(defconstant DOUBLE          13)
-(defconstant LDOUBLE         14)
-(defconstant STRTY           15)
-(defconstant UNIONTY         16)
-(defconstant XTYPE           17) ;     /* Extended target-specific type */
-; /* #define      MOETY           18 */   /* member of enum */
-(defconstant VOID            19)
-
-(defconstant MAXTYPES        19) ;      /* highest type+1 to be used by lang code */
 
 ;/*
 ; * Various flags
@@ -59,13 +86,9 @@
 
 ;; id -- base type
 ;; mod -- list of lists of modifiers
-(defstruct stype id mod)
-
-;(defconstant BTMASK '(UNDEF BOOL CHAR UCHAR SHORT USHORT INT UNSIGNED
-;		      LONG ULONG LONGLONG ULONGLONG FLOAT DOUBLE LDOUBLE
-;		      STRTY UNIONTY XTYPE VOID))
-;(defconstant TMASK '(PTR FTN ARY))
-
+(defstruct stype
+  (id nil :type symbol)
+  (mod nil :type list))
 
 (defun union-mod (l1 l2)
   (cond
@@ -114,3 +137,4 @@
 
 (defstruct interpass
   type lineno node locc lbl name asm off)
+
