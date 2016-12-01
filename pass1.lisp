@@ -1,7 +1,17 @@
 (defpackage #:pcc.pass1
   (:use #:cl #:pcc.mip-manifest)
   (:export
+   
    #:symtab
+   #:make-symtab
+   #:symtab-snext
+   #:symtab-sname
+   #:symtab-sap
+   #:symtab-sclass
+   #:symtab-stype
+   #:symtab-slevel
+   
+   #:p1nd
    #:make-p1nd
    #:p1nd-n_op
    #:p1nd-n_type
@@ -19,7 +29,28 @@
    #:getlval
    #:setlval
 
+   ;; init
+   #:astypnames
+   #:tab   ;; my own
+   
+   ;; scan
+   #:pragma_allpacked
+   
+   ;; pftn
+   #:getsymtab
+   #:bstruct   
+   #:blevel
+   #:reached
+
+   ;; symtabs
+   #:lookup
+   #:addname
+   
+   ;; gcc_compat
+   #:gcc_attr_parse
+   
    ;; from mip-manifest
+   #:INCREF
    #:stype
    #:stype-id
    #:stype-mod
@@ -35,11 +66,23 @@
    #:xdeljumps
    #:xdce
 
+   ;; mip-common
+   #:newstring
+   #:attr_new
+   #:attr_add
+   #:attr_find
+   #:uerror
+   
    ;; from mip-node
+   #:iarg
+   #:sarg
+   #:varg
    #:make-attr
+   #:attr
    #:attr-next
    #:attr-atype
    #:attr-aa
+   #:node
    #:make-node
    #:node-n_op
    #:node-n_type
@@ -110,8 +153,8 @@
 (defstruct symtab
   (snext nil :type (or null symtab)) ; link to other symbols in the same scope
   (soffset 0 :type fixnum)           ; offset or value
-  (sclass 0 :type fixnum)            ; storage class
-  (slevel 0 :stype fixnum)           ; scope level
+  (sclass 'SNULL :type symbol)            ; storage class
+  (slevel 0 :type fixnum)           ; scope level
   (sflags (make-stype) :type stype)  ; flags, see below
   (sname "" :type string) ; Symbol name
   (stype 'UNDEF :type symbol) ; type

@@ -1,4 +1,9 @@
-(in-package #:pcc)
+(defpackage #:pcc.mip-common
+  (:use #:cl #:pcc.pass2))
+
+(in-package #:pcc.mip-common)
+
+(defvar ndebug)
 
 ;/*
 ;* Free a node, and return its left descendant.
@@ -227,14 +232,14 @@
   (cond
     (freelink
      (let ((p freelink))
-       (setf freelink (node-left p))
-       (unless (eq (node-op p) 'FREE)
+       (setf freelink (node-n_left p))
+       (unless (eq (node-n_op p) 'FREE)
 	 (_cerror "node not FREE: ~a" p))
        (when ndebug
 	 (format t "alloc node ~a from freelist~%" p))
        p))
     (t
-     (let ((p (make-node :op 'FREE)))
+     (let ((p (make-node :n_op 'FREE)))
        (when ndebug
 	 (format t "alloc node ~a from memory~%" p))
        p))))
@@ -255,12 +260,18 @@
 (defun attr_new (type nelem)
   (declare (type symbol type)
 	   (fixnum nelem))
-  (make-attr :atype type :sz nelem
+  (make-attr :atype type
 	     :aa (make-array (list nelem)
-			     :initial-element (make-aarg :isrg 0
-							 :sarg 0
-							 :varg 0))))
+			     :initial-element 0)))
 
+(defun attr_add (old new)
+  "Add attribute list new before old and return new."
+  (cond
+    ((null new) old)
+    (t (do ((ap new (attr-next ap)))
+	   ((null (attr-next ap)) (setf (attr-next ap) old)))
+       new)))
+  
 ;; Search for attribute type in list ap.  Return entry or NULL.
 (defun attr_find (ap type)
   (if (and ap (not (eq (attr-atype ap) type)))

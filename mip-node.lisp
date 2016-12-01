@@ -1,10 +1,15 @@
 (defpackage #:pcc.mip-node
   (:use #:cl)
   (:export
+   #:iarg
+   #:sarg
+   #:varg
    #:make-attr
+   #:attr
    #:attr-next
    #:attr-atype
    #:attr-aa
+   #:node
    #:make-node
    #:node-n_op
    #:node-n_type
@@ -28,7 +33,7 @@
    ))
   
 
-(in-package #:pcc.node)
+(in-package #:pcc.mip-node)
 
 (deftype aarg () t)
 #|
@@ -39,9 +44,13 @@ union aarg {
 };
 |#
 
+(defun iarg (a x) (aref (attr-aa a) x))
+(defun sarg (a x) (aref (attr-aa a) x))
+(defun varg (a x) (aref (attr-aa a) x))
+
 (defstruct attr
   (next nil :type (or null attr))
-  (atype 0 :type fixnum)
+  (atype 0 :type symbol)
   (aa #() :type (vector aarg)))
 
 ;; sz dropped. aa has vecttor size inside

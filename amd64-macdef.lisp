@@ -1,4 +1,6 @@
-(in-package #:pcc)
+(defpackage #:pcc.amd64-macdef (:use #:cl))
+
+(in-package #:pcc.amd64-macdef)
 
 (defconstant ARGINIT 128) ;  # bits above fp where arguments start 
 (defconstant AUTOINIT 0)  ;  # bits below fp where automatics start
@@ -9,7 +11,7 @@
 (defconstant SZSHORT         16)
 (defconstant SZINT           32)
 (defconstant SZLONG          64)
-(defmacro SZPOINT (t)      64)
+(defmacro SZPOINT (tt) (declare (ignore tt)) 64)
 (defconstant SZLONGLONG      64)
 (defconstant SZFLOAT         32)
 (defconstant SZDOUBLE        64)
@@ -57,6 +59,7 @@
 
 (defconstant TARGET_VALIST t)
 (defconstant TARGET_STDARGS t)
+#|
 #define TARGET_BUILTINS                                                 \
         { "__builtin_stdarg_start", amd64_builtin_stdarg_start,         \
                                                 0, 2, 0, VOID },        \
@@ -69,3 +72,4 @@
 
 
 
+|#

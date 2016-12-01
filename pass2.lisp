@@ -1,5 +1,66 @@
-(in-pcakage #:pcc)
+(defpackage #:pcc.pass2
+  (:use #:cl #:pcc.mip-manifest)
+  (:export
 
+   #:ndebug
+   #:wdebug
+
+   ;; from mip-manifest
+   #:INCREF
+
+   #:stype
+   #:stype-id
+   #:stype-mod
+   #:make-stype
+   #:type-class
+
+   ;; mip-common
+   #:newstring
+   #:attr_new
+   #:attr_add
+   #:uerror
+   
+   
+   #:gflag
+   #:kflag
+   #:pflag
+   #:sspflag
+   #:xssa
+   #:xtailcall
+   #:xtemps
+   #:xdeljumps
+   #:xdce
+
+   ;; from node
+   #:make-attr
+   #:attr-next
+   #:attr-atype
+   #:attr-aa
+   #:node
+   #:make-node
+   #:node-n_op
+   #:node-n_type
+   #:node-n_qual
+   #:node-n_su
+   #:node-n_ap
+   #:node-n_reg
+   #:node-n_regw
+   #:node-n_name
+   #:node-n_df
+   #:node-n_label   
+   #:node-n_val
+   #:node-n_left
+   #:node-n_slval
+   #:node-n_right
+   #:node-n_rval
+   #:node-n_sp
+   #:node-n_dcon
+   #:getlval
+   #:setlval))
+
+(in-package #:pcc.pass2)
+
+#|
 ;; cookies, used as arguments to codgen 
 (defconstant FOREFF  #o01)              ; compute for effects only
 (defconstant INAREG  #o02)              ; /* compute into a register */
@@ -67,3 +128,7 @@
 (defconstant SROREG  2)  ;             /* Can convert into OREG */
 (defconstant SRREG   3)  ;             /* Must put into REG */
 
+|#
+
+(defvar ndebug)
+(defvar wdebug)

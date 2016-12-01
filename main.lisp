@@ -1,10 +1,13 @@
+(defpackage #:pcc
+  (:use #:cl #:pcc.pass1 #:pcc.pass2))
+
 (in-package #:pcc)
 
 (defvar bdebug)
 (defvar ddebug)
 (defvar edebug)
 (defvar idebug)
-(defvar ndebug)
+;(defvar ndebug) in mip-common
 (defvar odebug)
 (defvar pdebug)
 (defvar sdebug)
@@ -125,21 +128,22 @@
     (setf lineno 1)
     #+GCC_COMPAT (gcc_init)
     ;/* starts past any of the above */
-    (setf reached t)
+    (setf reached t))
     
   )
   
 (defun prtstats ()
   (format *error-output* "Name table entries:            ~a pcs~%" nametabs)
-  (format *error-output* "String table entries:            ~a pcs~%" strtabs)
-  (format *error-output* "Argument list unions:            ~a pcs~%"
+  (format *error-output* "String table entries:          ~a pcs~%" strtabs)
+  (format *error-output* "Argument list unions:          ~a pcs~%"
 	  arglistcnt)
-  (format *error-output* "Dimension/function unions:            ~a pcs~%"
+  (format *error-output* "Dimension/function unions:     ~a pcs~%"
 	  dimfuncnt)
-  (format *error-output* "Struct/union/enum blocks:            ~a pcs~%"
+  (format *error-output* "Struct/union/enum blocks:      ~a pcs~%"
 	  suedefcnt)
-  (format *error-output* "Inline control blocks:            ~a pcs~%"
+  (format *error-output* "Inline control blocks:         ~a pcs~%"
 	  inlstatcnt)
-  (format *error-output* "Permanent symtab entries:            ~a pcs~%"
-	  symtabcnt))
-  
+  (format *error-output* "Permanent symtab entries:      ~a pcs~%"
+	  pcc.pftn:symtabcnt)
+  (format *error-output* "Symtab tree count:             ~a pcs~%"
+	  pcc.symtabs:symtreecnt))

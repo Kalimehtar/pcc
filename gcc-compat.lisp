@@ -1,4 +1,6 @@
-(in-package #:pcc)
+(defpackage #:pcc.gcc-compat (:use #:cl))
+
+(in-package #:pcc.gcc-compat)
 
 (defstruct (kw (:constructor make-kw (name ptr rv)))
   name ptr rv)
@@ -18,7 +20,7 @@
    (make-kw "__volatile" nil 0)    ; 8
    (make-kw "__volatile__" nil 0)    ; 9
    (make-kw "__restrict" nil -1)    ; 10
-   (make-kw "__typeof__", nil 'C_TYPEOF)    ; 11
+   (make-kw "__typeof__" nil 'C_TYPEOF)    ; 11
    (make-kw "typeof" nil 'C_TYPEOF)    ; 12
    (make-kw "__extension__" nil -1)    ; 13
    (make-kw "__signed__" nil 0)    ; 14
@@ -117,9 +119,9 @@
   (cond
     ((/= str 0)
      (when (or (and (logand str (logior A1_STR A2_STR A3_STR))
-		    (/= (node-op p) 'STRING))
+		    (not (eq (node-op p) 'STRING)))
 	       (and (logand str (logior A1_NAME A2_NAME A3_NAME))
-		    (/= (node-op p) 'NAME)))
+		    (not (eq (node-op p) 'NAME))))
        (uerror "bad arg to attribute"))
      (if (eq (node-op p) 'STRING)
 	 (setf (aarg-sarg aa) (node-name p)) ; saved in cgram.y
@@ -220,5 +222,5 @@
 	(sp (make-symtab)))
     (setf (node-type p) (ctype ULONGLONG))))
     
-(defun gcc-init ()
+;(defun gcc-init ()
   

@@ -1,4 +1,7 @@
-(in-package #:pcc)
+(defpackage #:pcc.init
+  (:use #:cl #:pcc.pass1))
+
+(in-package #:pcc.init)
 
 ;;#define NODE P1ND
 ;;#define tfree p1tfree

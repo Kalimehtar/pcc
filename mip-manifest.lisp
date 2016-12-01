@@ -1,11 +1,24 @@
 (defpackage #:pcc.mip-manifest
   (:use #:cl #:pcc.mip-node)
   (:export
+   #:INCREF
+
    #:stype
    #:stype-id
    #:stype-mod
    #:make-stype
    #:type-class
+
+   #:mflags
+   #:Wflags
+
+   ;; mip-common
+   #:newstring
+   #:attr_new
+   #:attr_add
+   #:attr_find
+   #:uerror
+   
    #:gflag
    #:kflag
    #:pflag
@@ -17,10 +30,15 @@
    #:xdce
 
    ;; from node
+   #:iarg
+   #:sarg
+   #:varg
    #:make-attr
+   #:attr
    #:attr-next
    #:attr-atype
    #:attr-aa
+   #:node
    #:make-node
    #:node-n_op
    #:node-n_type
@@ -46,7 +64,7 @@
 ; * The order of the integer types are important.
 ; * Signed types must have bit 0 unset, unsigned types set (used below).
 
-(in-package #:pcc.manifest)
+(in-package #:pcc.mip-manifest)
 
 (deftype type-class ()
   '(member UNDEF BOOL CHAR UCHAR SHORT USHORT INT UNSIGNED LONG

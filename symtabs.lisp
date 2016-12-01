@@ -1,8 +1,31 @@
-(in-package #:pcc)
+(defpackage #:pcc.symtabs
+  (:use #:cl #:pcc.pass1)
+  (:shadow
+   #:make-node
+   #:node-n_op
+   #:node-n_type
+   #:node-n_qual
+   #:node-n_su
+   #:node-n_ap
+   #:node-n_reg
+   #:node-n_regw
+   #:node-n_name
+   #:node-n_df
+   #:node-n_label
+   #:node-n_val
+   #:node-n_left
+   #:node-n_slval
+   #:node-n_right
+   #:node-n_rval
+   #:node-n_sp
+   #:node-n_dcon)
+  (:export
+   ;;   #:symtabscnt
+   #:symtreecnt))
+
+(in-package #:pcc.symtabs)
 
 ;(defstruct (tree (:copier nil)) bitno lr)
-
-(defstruct sstype id mod)
 
 (defvar symtreecnt 0)
 
@@ -12,11 +35,6 @@
 (defvar firstname)
 (defvar nametabs 0)
 (defvar namestrlen 0)
-
-(defun addname (key)
-  (symtab_add key firstname nametabs namestrlen))
-
-
 
 ;;* Add a name to the name stack (if its non-existing),
 ;;* return its address.
@@ -43,26 +61,26 @@
 		(setf (gethash m ,first) m))
 	      (incf ,stlen (1+ len))
 	      (setf (gethash new ,first) new)
-	      new)))))
-	 
-       
-	     
-     
+	      new))))))
 
+(defun addname (key)
+  (symtab_add key firstname nametabs namestrlen))
 
 ;; Inserts a symbol into the symbol tree.
 ;; Returns a struct symtab.
 (defun lookup (key stype)
-  (let* ((type (sstype-id stype))
+  (declare (type string key)
+	   (type stype stype))
+  (let* ((type (stype-id stype))
 	 (uselvl (and (> blevel 0) (not (eq type 'SSTRING))))
-	 w svbit)
+	 w)
     (when (> blevel 0)
-      (do ((sym (gethash type tmpsyms) (symtab-next sym))) ((null sym) nil)
+      (do ((sym (gethash type tmpsyms) (symtab-snext sym))) ((null sym) nil)
 	(when (string= (symtab-sname sym) key)
 	  (return sym))))
     (case (gethash type numsyms 0)
       ((0)
-       (when (member 'SNOCREAT (sstype-mod stype))
+       (when (member 'SNOCREAT (stype-mod stype))
 	 (return-from lookup))
        (when uselvl
 	 (let ((sym (getsymtab key type)))
@@ -73,13 +91,12 @@
        (incf (gethash type numsyms))
        (return-from lookup (gethash type sympole)))
       ((1)
-       (setf w (gethash type sympole)
-	     svbit 0)) ; /* XXX why? */
+       (setf w (gethash type sympole)))
       (t
        (setf w (gethash key (gethash type sympole)))))
     (cond
       (w w)
-      ((member 'SNOCREAT (sstype-mod stype)) nil)
+      ((member 'SNOCREAT (stype-mod stype)) nil)
       (uselvl
        ;; Insert into the linked list, if feasible
        (let ((sym (getsymtab key type)))
