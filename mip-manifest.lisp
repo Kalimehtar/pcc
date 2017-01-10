@@ -1,23 +1,57 @@
 (defpackage #:pcc.mip-manifest
-  (:use #:cl #:pcc.mip-node)
+  (:use #:cl #:pcc.mip-node #:pcc.amd64-macdef)
   (:export
    #:INCREF
+   #:DECREF
+   #:BTYPE
+   #:ISINTEGER
+   #:SETOFF
+   #:ISARY
+   #:ISPTR
+   #:ISFTN
+   #:ISUNSIGNED
+   #:lineno
+   #:MODTYPE
+   #:regno
 
    #:stype
    #:stype-id
    #:stype-mod
    #:make-stype
    #:type-class
+   #:stype>
 
    #:mflags
    #:Wflags
+
+   #:make-interpass
+   #:ip_node
+   #:ip_name
+   #:ip_asm
+   #:interpass_prolog-ip_labels
+   #:SLIST_FIRST
+   #:SLIST_FOREACH
+   #:SLIST_INSERT_FIRST
+   #:SLIST_INSERT_LAST
+   #:mk-slist2
+   #:DLIST_INSERT_BEFORE
+   #:DLIST_INIT
+   #:interpass-qelem
+   #:interpass-type
+
+   #:make-interpass_prolog
+   #:interpass_prolog-ip_lblnum
 
    ;; mip-common
    #:newstring
    #:attr_new
    #:attr_add
    #:attr_find
+   #:attr_dup
    #:uerror
+   #:_cerror
+   #:deunsign
+   #:mkdope
    
    #:gflag
    #:kflag
@@ -28,11 +62,14 @@
    #:xtemps
    #:xdeljumps
    #:xdce
+   #:tfree
+   #:walkf
 
    ;; from node
    #:iarg
    #:sarg
    #:varg
+   #:amlist
    #:make-attr
    #:attr
    #:attr-next
@@ -59,7 +96,31 @@
    #:node-n_dcon
    #:getlval
    #:setlval
-   ))
+
+   ;; from macdef
+   #:SZPOINT
+   #:SZBOOL
+   #:SZCHAR
+   #:SZSHORT
+   #:SZINT
+   #:SZLONG
+   #:SZLONGLONG
+   #:SZFLOAT
+   #:SZDOUBLE
+   #:SZLDOUBLE
+   #:BOOL_TYPE
+   
+   #:ALCHAR
+   #:ALBOOL
+   #:ALSHORT
+   #:ALIINT
+   #:ALLONG
+   #:ALPOINT
+   #:ALLONGLONG
+   #:ALFLOAT
+   #:ALDOUBLE
+   #:ALLDOUBLE
+   #:ALSTACK))
 ; * Type names, used in symbol table building.
 ; * The order of the integer types are important.
 ; * Signed types must have bit 0 unset, unsigned types set (used below).
@@ -68,9 +129,11 @@
 
 (deftype type-class ()
   '(member UNDEF BOOL CHAR UCHAR SHORT USHORT INT UNSIGNED LONG
-    ULONG LONGLONG ULONGLONG FLOAT DOUBLE  STRTY  UNIONTY
+    ULONG LONGLONG ULONGLONG FLOAT DOUBLE STRTY UNIONTY
     XTYPE ; Extended target-specific type
     VOID))
+
+(defmacro regno (p) `(node-n_rval ,p)) ; register number
 
 #|
 
@@ -107,6 +170,39 @@
 (defstruct stype
   (id nil :type symbol)
   (mod nil :type list))
+
+(defun stype> (t1 t2)
+  (and (null (stype-mod t2))
+       (ecase (stype-id t1)
+	 (UNDEF nil)
+	 (BOOL (eq (stype-id t2) 'UNDEF))
+	 (CHAR (member (stype-id t2) '(UNDEF BOOL)))
+	 (UCHAR (member (stype-id t2) '(UNDEF BOOL CHAR)))
+	 (SHORT (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR)))
+	 (USHORT (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR SHORT)))
+	 (INT (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR SHORT USHORT)))
+	 (UNSIGNED (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR
+					   SHORT USHORT INT)))
+	 (LONG (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR
+				       SHORT USHORT INT UNSIGNED)))
+	 (ULONG (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR
+					SHORT USHORT INT UNSIGNED LONG)))
+	 (LONGLONG (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR
+					   SHORT USHORT INT UNSIGNED
+					   LONG ULONG)))
+	 (ULONGLONG (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR
+					    SHORT USHORT INT UNSIGNED LONG
+					    ULONG LONGLONG)))
+	 (FLOAT (not (member (stype-id t2) '(FLOAT DOUBLE LDOUBLE STRTY
+					     UNIONTY XTYPE VOID))))
+	 (DOUBLE (not (member (stype-id t2) '(DOUBLE LDOUBLE STRTY UNIONTY
+					      XTYPE VOID))))
+	 (LDOUBLE (not (member (stype-id t2) '(LDOUBLE STRTY UNIONTY
+					       XTYPE VOID))))
+	 (STRTY (not (member (stype-id t2) '(STRTY UNIONTY XTYPE VOID))))
+	 (UNIONTY (not (member (stype-id t2) '(UNIONTY XTYPE VOID))))
+	 (XTYPE (not (member (stype-id t2) '(XTYPE VOID))))
+	 (VOID (not (eq (stype-id t2) 'VOID))))))
 
 (defun union-mod (l1 l2)
   (cond
@@ -153,6 +249,96 @@
 	      :mod (cdr (stype-mod x))))
 (defun DECQAL (x) (DECREF x))
 
+(defmacro SETOFF (x y)
+  `(when (/= (mod ,x ,y) 0)
+     (setf ,x (* (1+ (truncate ,x ,y)) ,y))))
+
+(defstruct slist forw)
+
+(defmacro slist-head (n)
+  `(defstruct (,n (:include slist))
+     last))
+
+(slist-head slist2)
+(defun mk-slist2 ()
+  (let ((n (vector nil)))
+    (make-slist2 :forw n :last n)))
+
+(defmacro SLIST_INIT (h &optional (last 'slist2-last))
+  `(let ((n (vector nil)))
+     (setf (slist-forw ,h) n
+	   (,last ,h) n)))
+
+(defun SLIST_FIRST (h) (aref (slist-forw h) 0))
+
+(defun SLIST_ISEMPTY (h &optional (last 'slist2-last))
+  (eq (slist-forw h) (funcall last h)))
+
+(defmacro SLIST_FOREACH (v h f &body body)
+  `(do ((,v (SLIST_FIRST ,h) (SLIST_FIRST (,f ,v)))) ((null ,v) nil)
+    ,@body))
+
+(defmacro SLIST_INSERT_FIRST (h e f &optional (last 'slist2-last))
+  `(progn
+     (when (eq (,last ,h) (slist-forw ,h))
+       (setf (,last ,h) (slist-forw (,f ,e))))
+     (setf (aref (slist-forw (,f ,e)) 0) (SLIST_FIRST ,h)
+	   (aref (slist-forw ,h) 0) ,e)))
+
+(defmacro SLIST_INSERT_LAST (h e f &optional (last 'slist2-last))
+  `(setf (aref (slist-forw (,f ,e)) 0) nil
+	 (aref (,last ,h) 0) ,e
+	 (,last ,h) (slist-forw (,f ,e))))
+
+(defstruct dlist forw back)
+
+(defun DLIST_INIT (h f)
+  (setf (dlist-forw (funcall f h)) h
+	(dlist-back (funcall f h)) h))
+
+(defun DLIST_INSERT_BEFORE (h e f)
+  (setf (dlist-forw (funcall f e)) h
+	(dlist-back (funcall f e)) (dlist-back (funcall f h))
+	(dlist-forw (funcall f (dlist-back (funcall f e)))) e
+	(dlist-back (funcall f h)) e))
+
 (defstruct interpass
-  type lineno node locc lbl name asm off)
+  (qelem (make-dlist) :type dlist)
+  type lineno _un)
+; node locc lbl name asm off)
+
+(defmacro mkdef-interpass ()
+  `(defstruct (interpass_prolog (:include interpass))
+     ipp_name    ;         /* Function name */
+     ipp_vis;            /* Function visibility */
+     ipp_type;         /* Function type */
+     ipp_autos;          /* Size on stack needed */
+     ip_tmpnum;          /* # allocated temp nodes so far */
+     ip_lblnum;          /* # used labels so far */
+     ip_labels;         /* labels used in computed goto */  
+     ,@TARGET_IPP_MEMBERS))
+
+(mkdef-interpass)
+
+;; Epilog/prolog takes following arguments (in order):
+;; - type
+;; - regs
+;; - autos
+;; - name
+;; - type
+;; - retlab
+
+
+(defun ip_node (x) (interpass-_un x))
+(defun (setf ip_node) (val x) (setf (interpass-_un x) val))
+(defun ip_locc (x) (interpass-_un x))
+(defun (setf ip_locc) (val x) (setf (interpass-_un x) val))
+(defun ip_lbl (x) (interpass-_un x))
+(defun (setf ip_lbl) (val x) (setf (interpass-_un x) val))
+(defun ip_name (x) (interpass-_un x))
+(defun (setf ip_name) (val x) (setf (interpass-_un x) val))
+(defun ip_asm (x) (interpass-_un x))
+(defun (setf ip_asm) (val x) (setf (interpass-_un x) val))
+(defun ip_off (x) (interpass-_un x))
+(defun (setf ip_off) (val x) (setf (interpass-_un x) val))
 

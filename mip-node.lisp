@@ -4,6 +4,7 @@
    #:iarg
    #:sarg
    #:varg
+   #:amlist
    #:make-attr
    #:attr
    #:attr-next
@@ -45,15 +46,17 @@ union aarg {
 |#
 
 (defun iarg (a x) (aref (attr-aa a) x))
+(defun (setf iarg) (val a x) (setf (aref (attr-aa a) x) val))
 (defun sarg (a x) (aref (attr-aa a) x))
 (defun varg (a x) (aref (attr-aa a) x))
+(defun (setf varg) (val a x) (setf (aref (attr-aa a) x) val))
 
 (defstruct attr
   (next nil :type (or null attr))
   (atype 0 :type symbol)
   (aa #() :type (vector aarg)))
-
 ;; sz dropped. aa has vecttor size inside
+
 #|
 struct attr {
         struct attr *next;
@@ -68,7 +71,7 @@ struct attr {
 (defstruct node
   (n_op 'UNDEF :type symbol)
   n_3
-  (n_type 0 :type fixnum)
+  (n_type nil :type symbol)
   (n_qual 0 :type fixnum)
   (n_su 0 :type fixnum)
   n_5

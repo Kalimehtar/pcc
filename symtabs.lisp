@@ -34,6 +34,7 @@
 (defvar sympole (make-hash-table))
 (defvar firstname)
 (defvar nametabs 0)
+(defvar strtabs 0)
 (defvar namestrlen 0)
 
 ;;* Add a name to the name stack (if its non-existing),
@@ -115,7 +116,18 @@
 	 sym)))))
 	       
 	   
-       
+(defun hide (sym)
+  (let* ((typ (stype-id (symtab-sflags sym)))
+	 (new (getsymtab (symtab-sname sym)
+			 (make-stype :id typ :mod '(STEMP)))))
+    (setf (symtab-snext new) (gethash typ tmpsyms)
+	  (gethash typ tmpsyms) new)
+    #+PCC_DEBUG
+    (when pdebug
+      (format t (tab "~a hidden at level ~a (~a -> ~a)~%")
+	      sym->sname blevel sym new))
+    new))
+			
 	 
       
 

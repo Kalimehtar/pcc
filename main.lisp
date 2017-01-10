@@ -1,5 +1,8 @@
 (defpackage #:pcc
-  (:use #:cl #:pcc.pass1 #:pcc.pass2))
+  (:use #:cl #:pcc.pass1 #:pcc.pass2)
+  (:import-from #:pcc.symtabs #:nametabs #:strtabs)
+  (:import-from #:pcc.pftn #:arglistcnt #:dimfuncnt #:suedefcnt)
+  (:import-from #:pcc.inline #:inlstatcnt #:sdebug))
 
 (in-package #:pcc)
 
@@ -10,7 +13,7 @@
 ;(defvar ndebug) in mip-common
 (defvar odebug)
 (defvar pdebug)
-(defvar sdebug)
+;(defvar sdebug) in inline
 (defvar tdebug)
 (defvar xdebug)
 ; (defvar wdebug) in mip-common

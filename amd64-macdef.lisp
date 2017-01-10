@@ -1,6 +1,34 @@
-(defpackage #:pcc.amd64-macdef (:use #:cl))
+(defpackage #:pcc.amd64-macdef
+  (:use #:cl)
+  (:export
+   #:TARGET_IPP_MEMBERS
+   #:SZPOINT
+   #:SZBOOL
+   #:SZCHAR
+   #:SZSHORT
+   #:SZINT
+   #:SZLONG
+   #:SZLONGLONG
+   #:SZFLOAT
+   #:SZDOUBLE
+   #:SZLDOUBLE
+   #:BOOL_TYPE
+
+   #:ALCHAR
+   #:ALBOOL
+   #:ALSHORT
+   #:ALIINT
+   #:ALLONG
+   #:ALPOINT
+   #:ALLONGLONG
+   #:ALFLOAT
+   #:ALDOUBLE
+   #:ALLDOUBLE
+   #:ALSTACK))
 
 (in-package #:pcc.amd64-macdef)
+
+(defconstant TARGET_IPP_MEMBERS nil)
 
 (defconstant ARGINIT 128) ;  # bits above fp where arguments start 
 (defconstant AUTOINIT 0)  ;  # bits below fp where automatics start

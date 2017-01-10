@@ -7,6 +7,8 @@
 
    ;; from mip-manifest
    #:INCREF
+   #:lineno
+   #:MODTYPE
 
    #:stype
    #:stype-id
@@ -18,8 +20,13 @@
    #:newstring
    #:attr_new
    #:attr_add
+   #:attr_find
+   #:attr_dup
    #:uerror
-   
+   #:_cerror
+   #:dope
+   #:mkdope
+   #:deunsign
    
    #:gflag
    #:kflag
@@ -30,9 +37,13 @@
    #:xtemps
    #:xdeljumps
    #:xdce
+   #:Wflags
+   #:walkf
+   #:tfree
 
    ;; from node
    #:make-attr
+   #:attr
    #:attr-next
    #:attr-atype
    #:attr-aa

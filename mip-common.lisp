@@ -1,29 +1,60 @@
 (defpackage #:pcc.mip-common
-  (:use #:cl #:pcc.pass2))
+  (:use #:cl #:pcc.pass2)
+  (:import-from #:pcc.pass1 #:cdope))
 
 (in-package #:pcc.mip-common)
 
 (defvar ndebug)
+(defvar usednodes)
+(defvar freelink)
 
 ;/*
 ;* Free a node, and return its left descendant.
 ;* It is up to the caller to know whether the return value is usable.
 ;*/
-#|
+
 (defun nfree (p)
   (unless p
     (_cerror "freeing blank node!"))
-  (when (eq (node-op p) 'FREE)
+  (when (eq (node-n_op p) 'FREE)
     (_cerror "freeing FREE node ~a" p))
   (when ndebug
     (format t "freeing node ~a~%" p))
-  (let ((l (node-left p)))
-    (setf (node-op p) 'FREE
-	  (node-left p) freelink
+  (let ((l (node-n_left p)))
+    (setf (node-n_op p) 'FREE
+	  (node-n_left p) freelink
 	  freelink p)
     (decf usednodes)
     l))
-  |#
+
+#-LANG_F77
+(defun optype (x)
+  (coptype x))
+
+#+MKEXT
+(defun coptype (o)
+  (declare (type symbol o))
+  (car (intersection (gethash o dope) '(BITYPE LTYPE UTYPE))))
+#-MKEXT
+(progn
+  #+PASS2
+  (defun coptype (o)
+    (declare (type symbol o))
+    (car (intersection (gethash o dope) '(BITYPE LTYPE UTYPE))))
+  #-PASS2
+  (defun coptype (o)
+    (declare (type symbol o))
+    (car (intersection (cdope o) '(BITYPE LTYPE UTYPE)))))
+  
+
+
+(defun walkf (_t f arg)
+  (let ((opty (OPTYPE (node-n_op _t))))
+    (unless (eq opty 'LTYPE)
+      (walkf (node-n_left _t) f arg))
+    (when (eq opty 'BITYPE)
+      (walkf (node-n_right _t) f arg))
+    (funcall f _t arg)))
 
 (defstruct (dopest (:constructor make-dopest (dopeop opst dopeval)))
   dopeop opst dopeval)
@@ -89,7 +120,7 @@
 
 (defvar nerrors)
 (defvar ftitle "<stdin>")
-(defvar lineno)
+(defvar lineno 0)
 (defvar savstringsz)
 (defvar newattrsz)
 (defvar nodesszcnt)
@@ -224,9 +255,6 @@
        (apply #'format *error-output* (_warning-fmt w) ap)
        (format *error-output* "~%")))))
 
-(defvar usednodes)
-(defvar freelink)
-
 (defun talloc ()
   (incf usednodes)
   (cond
@@ -244,6 +272,11 @@
 	 (format t "alloc node ~a from memory~%" p))
        p))))
 
+(defun tfree (p)
+  (declare (type node p))
+  (unless (eq (node-n_op p) 'FREE)
+    (walkf p #'nfree 0)))
+
 (defun mkdope ()
   (setf nerrors 0 warniserr 0)
   (dolist (q indope)
@@ -252,6 +285,20 @@
 
 (defun newstring (s)
   (copy-seq s))
+
+(defun deunsign (x)
+  "Make a type signed, if possible"
+  (declare (type stype x))
+  (make-stype
+   :id (case (stype-id x)
+	 ((UCHAR) 'CHAR)
+	 ((USHORT) 'SHORT)
+	 ((UNSIGNED) 'INT)
+	 ((ULONG) 'LONG)
+	 ((ULONGLONG) 'LONGLONG)
+	 (t (stype-id x)))
+   :mod (stype-mod x)))
+
 
 ;/*
 ;* Attribute functions.
@@ -274,6 +321,16 @@
   
 ;; Search for attribute type in list ap.  Return entry or NULL.
 (defun attr_find (ap type)
+  (declare (type (or null attr) ap)
+	   (type symbol type))
   (if (and ap (not (eq (attr-atype ap) type)))
       (attr_find (attr-next ap) type)
       ap))
+
+(defun attr_dup (ap)
+  "Duplicate an attribute, like strdup."
+  (declare (type attr ap))
+  (let ((ap1 (copy-structure ap)))
+    (setf (attr-next ap1) nil)
+    ap1))
+  
