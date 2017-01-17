@@ -267,37 +267,6 @@ Returns 1 if handled, 0 otherwise."
   (setf (p1nd-n_type p) _t)
   1)
 
-(defun stype> (t1 t2)
-  (ecase (stype-id t1)
-    (UNDEF nil)
-    (BOOL (eq (stype-id t2) 'UNDEF))
-    (CHAR (member (stype-id t2) '(UNDEF BOOL)))
-    (UCHAR (member (stype-id t2) '(UNDEF BOOL CHAR)))
-    (SHORT (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR)))
-    (USHORT (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR SHORT)))
-    (INT (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR SHORT USHORT)))
-    (UNSIGNED (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR
-				      SHORT USHORT INT)))
-    (LONG (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR
-				  SHORT USHORT INT UNSIGNED)))
-    (ULONG (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR
-				   SHORT USHORT INT UNSIGNED LONG)))
-    (LONGLONG (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR
-				      SHORT USHORT INT UNSIGNED LONG ULONG)))
-    (ULONGLONG (member (stype-id t2) '(UNDEF BOOL CHAR UCHAR
-				       SHORT USHORT INT UNSIGNED LONG ULONG
-				       LONGLONG)))
-    (FLOAT (not (member (stype-id t2) '(FLOAT DOUBLE LDOUBLE STRTY UNIONTY
-					XTYPE VOID))))
-    (DOUBLE (not (member (stype-id t2) '(DOUBLE LDOUBLE STRTY UNIONTY
-					 XTYPE VOID))))
-    (LDOUBLE (not (member (stype-id t2) '(LDOUBLE STRTY UNIONTY
-					  XTYPE VOID))))
-    (STRTY (not (member (stype-id t2) '(STRTY UNIONTY XTYPE VOID))))
-    (UNIONTY (not (member (stype-id t2) '(UNIONTY XTYPE VOID))))
-    (XTYPE (not (member (stype-id t2) '(XTYPE VOID))))
-    (VOID (not (eq (stype-id t2) 'VOID)))))
-
 (defun conval (p o q)
   (declare (type p1nd p q) (type symbol o))
   (let ((tl (p1nd-n_type p))
@@ -689,12 +658,33 @@ Returns 1 if handled, 0 otherwise."
 	((FCOMPLEX COMPLEX LCOMPLEX FIMAG IMAG LIMAG) '(MDBI))
 	(otherwise '(MPTR MPTI)))))
 
+(defvar tvaloff (if (> (+ MAXREGS NPERMREG) 100) (+ MAXREGS NPERMREG 100) 100))
+
+;; Returns a TEMP node with temp number nr.
+;; If nr == 0, return a node with a new number.
+(defun tempnode (nr type df ap)
+  (let ((r (_block 'TEMP nil nil type df ap)))
+    (setf (regno r) (or nr tvaloff))
+    (incf tvaloff (szty type))
+    r))
+
+(defun cstknode (_t df ap)
+  "Create a node for either TEMP or on-stack storage"
+  ;;  create a symtab entry suitable for this type
+  (let ((sp (getsymtab "0hej" 'SSTMT)))
+    (setf (symtab-stype sp) _t
+	  (symtab-sdf sp) df
+	  (symtab-sap sp) ap
+	  (symtab-sclass sp) 'AUTO
+	  (symtab-soffset sp) 'NOOFFSET)
+    (oalloc sp 'autooff)
+    (error "Unfinished")))
 
 (defun has_se (p)
   "Return t if an assignment is found"
   (cond
     ((and (eq (p1nd-n_op p) 'COMOP)
-	  (eq (p1nd-n_op (p1nd-n_left p)) GOTO))
+	  (eq (p1nd-n_op (p1nd-n_left p)) 'GOTO))
      t)
     ((member 'ASSFLG (cdope (p1nd-n_op p))) t)
     ((eq (coptype (p1nd-n_op p)) 'LTYPE) nil)
@@ -807,3 +797,13 @@ Returns 1 if handled, 0 otherwise."
   "set PROG-seg label"
   (setf reached 1) ; /* Will this always be correct? */
   (send_passt 'IP_DEFLAB label))
+
+(defun cqual (_t q)
+  "Return CON/VOL/null, whichever are active for the current type."
+  (loop
+     (unless (ISARY _t)
+       (return))
+     (setf _t (DECREF _t)
+	   q (DECQAL q)))
+  (when (stype-mod _t)
+    (intersection (stype-mod q) '(CON VOL))))

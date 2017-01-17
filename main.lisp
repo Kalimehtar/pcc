@@ -35,7 +35,6 @@
 (defvar sspflag)
 (defvar xssa)
 (defvar xtailcall)
-(defvar xtemps)
 (defvar xdeljumps)
 (defvar xdce)
 (defvar xinline)

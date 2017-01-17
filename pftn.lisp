@@ -26,6 +26,8 @@
 
 (in-package #:pcc.pftn)
 
+(defvar xtemps)  ;; from main
+
 ;;#define NODE P1ND
 (deftype node () 'p1nd)
 (defun node-n_op (n) (p1nd-n_op n))
@@ -399,9 +401,37 @@
 	     (member (symtab-sclass p) '(AUTO REGISTER))
 	     (or (stype> (make-stype :id 'STRTY) (symtab-stype p))
 		 (ISPTR (symtab-stype p)))
-	     
-		   (p->stype < STRTY || ISPTR(p->stype)) &&
-		               !(cqual(p->stype, p->squal) & VOL) && cisreg(p->stype))
+	     (not (member 'VOL (cqual (symtab-stype p) (symtab-squal p))))
+	     (cisreg (symtab-stype p)))
+    (let ((tn (tempnode nil (symtab-stype p) (symtab-sdf p) (symtab-sap p))))
+      (setf (symtab-soffset p) (regno tn)
+	    (stype-mod (symtab-sflags p)) (adjoin 'STNODE
+						  (stype-mod
+						   (symtab-sflags p))))
+      (nfree tn)
+      (return-from oalloc nil)))
+  (let* ((al (talign (symtab-stype p) (symtab-sap p)))
+	 (off (case poff
+		(argoff argoff)
+		(autooff autooff)))
+	 (noff off)
+	 (tsz (tsize (symtab-stype p) (symtab-sdf p) (symtab-sap p))))
+    (cond
+      #+BACKAUTO
+      ((equalp (symtab-sclass p) (make-stype :id 'AUTO))
+       (setf noff (+ off tsz))
+       (when (< noff 0)
+	 (_cerror "stack overflow"))
+       (SETOFF noff al)
+       (setf off (- noff)))
+      ((and (equalp (symtab-sclass p) 'PARAM)
+	    (null (stype-mod (symtab-stype p)))
+	    (member (stype-id (symtab-stype p))
+		    '(CHAR UCHAR SHORT USHORT BOOL)))
+       (setf off (upoff SZINT ALINT noff))))
+		  
+    
+    (error "Unfinished")))
 
 (defun falloc (p w pty)
   (declare (type (or null symtab) p)

@@ -4,6 +4,9 @@
 
 (defvar cftnod (make-p1nd))
 
+(defun mkty (_t d sue)
+  (_block 'TYPE nil nil _t d sue))
+
 ;* Traverse an unhandled expression tree bottom-up and call buildtree()
 ;* or equivalent as needed.
 
@@ -17,6 +20,7 @@
 			     (make-stype :id 'SLBLNAME :mod '(STEMP))
 			     (make-stype :id 'SNORMAL)))))
 	 (when (member 'SINLINE (stype-mod (symtab-sflags sp)))
-	   (inline_ref sp)
+	   (inline_ref sp))
+	 (let ((r (nametree sp)))
 	   (error "Unfinished")))))))
 	 

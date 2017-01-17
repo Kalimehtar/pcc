@@ -3,6 +3,7 @@
 (defsystem :pcc
   :serial t
   :components ((:file #:mip-node)
+	       (:file #:external)
                (:file #:amd64-macdef)
 	       (:file #:mip-manifest)
                (:file #:pass1)

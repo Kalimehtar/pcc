@@ -1,9 +1,12 @@
 (defpackage #:pcc.pass2
-  (:use #:cl #:pcc.mip-manifest)
+  (:use #:cl #:pcc.mip-manifest #:pcc.external)
   (:export
 
    #:ndebug
    #:wdebug
+
+   ;; from external
+   #:NPERMREG
 
    ;; from mip-manifest
    #:INCREF

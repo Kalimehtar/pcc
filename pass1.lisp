@@ -1,5 +1,5 @@
 (defpackage #:pcc.pass1
-  (:use #:cl #:pcc.mip-manifest)
+  (:use #:cl #:pcc.mip-manifest #:pcc.external)
   (:export
    
    #:symtab
@@ -111,13 +111,19 @@
    #:stref
    #:cdope
    #:plabel
+   #:cqual
+   #:tempnode
 
    ;; code
    #:fldty
+
+   ;; from external
+   #:NPERMREG
    
    ;; from mip-manifest
    #:INCREF
    #:DECREF
+   #:DECQAL
    #:BTYPE
    #:ISINTEGER
    #:SETOFF
@@ -205,8 +211,10 @@
 
    ;; from local
    #:clocal
+   #:cisreg
 
    ;; from macdef
+   #:MAXREGS   
    #:SZPOINT
    #:SZBOOL
    #:SZCHAR
@@ -218,11 +226,12 @@
    #:SZDOUBLE
    #:SZLDOUBLE
    #:BOOL_TYPE
-
+   #:szty
+   
    #:ALCHAR
    #:ALBOOL
    #:ALSHORT
-   #:ALIINT
+   #:ALINT
    #:ALLONG
    #:ALPOINT
    #:ALLONGLONG
@@ -278,7 +287,7 @@
 
 (defstruct symtab
   (snext nil :type (or null symtab)) ; link to other symbols in the same scope
-  (soffset 0 :type fixnum)           ; offset or value
+  (soffset 0 :type (or symbol fixnum))           ; offset or value
   ;; Monk :: sclass & FIELD | n <=> (FIELD . n)
   (sclass 'SNULL :type (or symbol cons))            ; storage class
   (slevel 0 :type fixnum)           ; scope level

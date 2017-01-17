@@ -56,7 +56,12 @@
 	   ))))))
   
 
+(defun cisreg (_t)
+  "Return t if a variable of type _t is OK to put in register."
+  (if (equalp _t (make-stype :id 'LDOUBLE)) nil t))
+
 (defun ctype (type)
+  "map types which are not defined on the local machine"
   (case (BTYPE type)
     ((LONGLONG) (MODTYPE type (make-stype :id 'LONG)))
     ((ULONGLONG) (MODTYPE type (make-stype :id 'ULONG))))

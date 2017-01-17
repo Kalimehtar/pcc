@@ -1,6 +1,8 @@
-(defpackage #:pcc.amd64-macdef
+(defpackage #:pcc.macdef
   (:use #:cl)
   (:export
+   #:MAXREGS
+   
    #:TARGET_IPP_MEMBERS
    #:SZPOINT
    #:SZBOOL
@@ -13,11 +15,12 @@
    #:SZDOUBLE
    #:SZLDOUBLE
    #:BOOL_TYPE
+   #:szty
 
    #:ALCHAR
    #:ALBOOL
    #:ALSHORT
-   #:ALIINT
+   #:ALINT
    #:ALLONG
    #:ALPOINT
    #:ALLONGLONG
@@ -26,7 +29,7 @@
    #:ALLDOUBLE
    #:ALSTACK))
 
-(in-package #:pcc.amd64-macdef)
+(in-package #:pcc.macdef)
 
 (defconstant TARGET_IPP_MEMBERS nil)
 
@@ -80,6 +83,16 @@
 ;  Default char is signed 
 (defconstant  CHAR_UNSIGNED nil)
 (defconstant BOOL_TYPE       'UCHAR) ;   /* what used to store _Bool */
+
+(defun szty (_t)
+  "How many integer registers are needed? (used for stack allocation)"
+  (case _t
+    ((UNDEF BOOL CHAR UCHAR SHORT USHORT INT UNSIGNED FLOAT) 1)
+    (LDOUBLE 4)
+    (otherwise 2)))
+
+(defconstant MAXREGS #o050) ; 40 registers
+
 
 
 ;;;;; ............

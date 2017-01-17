@@ -1,5 +1,5 @@
 (defpackage #:pcc.mip-manifest
-  (:use #:cl #:pcc.mip-node #:pcc.amd64-macdef)
+  (:use #:cl #:pcc.mip-node #:pcc.macdef)
   (:export
    #:INCREF
    #:DECREF
@@ -98,6 +98,7 @@
    #:setlval
 
    ;; from macdef
+   #:MAXREGS
    #:SZPOINT
    #:SZBOOL
    #:SZCHAR
@@ -109,11 +110,12 @@
    #:SZDOUBLE
    #:SZLDOUBLE
    #:BOOL_TYPE
+   #:szty   
    
    #:ALCHAR
    #:ALBOOL
    #:ALSHORT
-   #:ALIINT
+   #:ALINT
    #:ALLONG
    #:ALPOINT
    #:ALLONGLONG
@@ -129,11 +131,12 @@
 
 (deftype type-class ()
   '(member UNDEF BOOL CHAR UCHAR SHORT USHORT INT UNSIGNED LONG
-    ULONG LONGLONG ULONGLONG FLOAT DOUBLE STRTY UNIONTY
+    ULONG LONGLONG ULONGLONG FLOAT DOUBLE LDOUBLE STRTY UNIONTY
     XTYPE ; Extended target-specific type
     VOID))
 
-(defmacro regno (p) `(node-n_rval ,p)) ; register number
+(defun regno (p) (node-n_rval p)) ; register number
+(defun (setf regno) (val p) (setf (node-n_rval p) val))
 
 #|
 
