@@ -1,6 +1,9 @@
 (defpackage #:pcc.pass1
   (:use #:cl #:pcc.mip-manifest #:pcc.external)
   (:export
+
+   #:NAME #:ICON #:FCON #:CALL #:UCALL #:UMUL
+   #:<=ATTR_MAX
    
    #:symtab
    #:make-symtab
@@ -95,6 +98,8 @@
    #:argoff
    #:autooff
    #:oalloc
+   #:defid
+   #:defid2
 
    ;; symtabs
    #:lookup
@@ -113,6 +118,7 @@
    #:plabel
    #:cqual
    #:tempnode
+   #:nametree
 
    ;; code
    #:fldty
@@ -163,6 +169,71 @@
    #:interpass-qelem
    #:interpass-type
    #:regno
+   #:UNDEF
+   #:BOOL
+   #:CHAR
+   #:UCHAR
+   #:SHORT
+   #:USHORT
+   #:INT
+   #:UNSIGNED
+   #:LONG
+   #:ULONG
+   #:LONGLONG
+   #:ULONGLONG
+   #:FLOAT
+   #:DOUBLE
+   #:LDOUBLE
+   #:STRTY
+   #:UNIONTY
+   #:XTYPE
+   #:VOID
+   #:PTR
+   #:FTN
+   #:ARY
+   #:CON
+   #:VOL
+
+   #:SNULL
+   #:AUTO
+   #:EXTERN
+   #:STATIC
+   #:REGISTER
+   #:EXTDEF
+   #:THLOCAL
+   #:KEYWORD
+   #:MOS
+   #:PARAM
+   #:STNAME
+   #:MOU
+   #:UNAME
+   #:TYPEDEF
+   #:ENAME
+   #:MOE
+   #:USTATIC
+
+   #:SNORMAL
+   #:STAGNAME
+   #:SLBLNAME
+   #:SMOSNAME
+   #:SSTRING
+   #:NSTYPES
+   #:SMASK
+   
+   #:STLS
+   #:SINSYS ; Declared in system header
+   #:SSTMT ; Allocate symtab on statement stack
+   #:SNOCREAT ; don't create a symbol in lookup()
+   #:STEMP ;  Allocate symtab from temp or perm mem
+   #:SDYNARRAY ; symbol is dynamic array on stack
+   #:SINLINE ; function is of type inline
+   #:SBLK ; Allocate symtab from blk mem
+   #:STNODE ; symbol shall be a temporary node
+   #:SBUILTIN ; this is a builtin function
+   #:SASG ; symbol is assigned to already
+   #:SLOCAL1
+   #:SLOCAL2
+   #:SLOCAL3
 
    ;; mip-common
    #:newstring
@@ -227,6 +298,9 @@
    #:SZLDOUBLE
    #:BOOL_TYPE
    #:szty
+   #:TARGET_ENDIAN
+   #:TARGET_LE
+   #:TARGET_BE   
    
    #:ALCHAR
    #:ALBOOL
@@ -270,7 +344,8 @@
 ; *      ...unless:
 ; *              ddim == NOOFFSET, an array without dimenston, "[]"
 ; *              ddim == -1, dynamic array while building before defid.
-(defstruct dimfun ddim dfun)
+;;(defstruct dimfun ddim dfun)
+;;   dimfun is a union, so in lisp it is simply (or integer arglist)
 
 ;/*
 ; * Argument list member info when storing prototypes.
@@ -295,7 +370,7 @@
   (sname "" :type string) ; Symbol name
   (stype (make-stype :id 'UNDEF) :type stype) ; type
   (squal 0) ; qualifier
-  sdf  ; ptr to the dimension/prototype array
+  (sdf nil :type (or integer symbol vector))  ; ptr to the dimension/prototype array
   (sap nil :type list)) ; the base type attribute list
 
 (defun class-fieldp (x) (and (consp x) (eq (car x) 'FIELD)))
@@ -475,3 +550,7 @@
     (EREQ 'ER)
     (LSEQ 'LS)
     (RSEQ 'RS)))
+
+(defvar <=ATTR_MAX (append ATTR_MI '(:ATTR_COMPLEX :xxxATTR_BASETYP
+				     :ATTR_QUALTYP :ATTR_ALIGNED
+				     :ATTR_NORETURN :ATTR_STRUCT)))

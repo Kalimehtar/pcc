@@ -53,7 +53,7 @@ union aarg {
 
 (defstruct attr
   (next nil :type (or null attr))
-  (atype 0 :type symbol)
+  (atype nil :type symbol)
   (aa #() :type (vector aarg)))
 ;; sz dropped. aa has vecttor size inside
 

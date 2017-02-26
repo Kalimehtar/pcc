@@ -16,6 +16,11 @@
    #:SZLDOUBLE
    #:BOOL_TYPE
    #:szty
+   #:TARGET_ENDIAN
+   #:TARGET_LE
+   #:TARGET_BE
+
+   #:ATTR_MI_TARGET
 
    #:ALCHAR
    #:ALBOOL
@@ -83,6 +88,7 @@
 ;  Default char is signed 
 (defconstant  CHAR_UNSIGNED nil)
 (defconstant BOOL_TYPE       'UCHAR) ;   /* what used to store _Bool */
+(defconstant TARGET_ENDIAN 'TARGET_LE)
 
 (defun szty (_t)
   "How many integer registers are needed? (used for stack allocation)"
@@ -114,3 +120,5 @@
 
 
 |#
+
+(defvar ATTR_MI_TARGET '(:ATTR_AMD64_CMPLRET :ATTR_AMD64_XORLBL))

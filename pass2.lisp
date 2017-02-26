@@ -18,6 +18,30 @@
    #:stype-mod
    #:make-stype
    #:type-class
+   #:UNDEF
+   #:BOOL
+   #:CHAR
+   #:UCHAR
+   #:SHORT
+   #:USHORT
+   #:INT
+   #:UNSIGNED
+   #:LONG
+   #:ULONG
+   #:LONGLONG
+   #:ULONGLONG
+   #:FLOAT
+   #:DOUBLE
+   #:LDOUBLE
+   #:STRTY
+   #:UNIONTY
+   #:XTYPE
+   #:VOID
+   #:PTR
+   #:FTN
+   #:ARY
+   #:CON
+   #:VOL
 
    ;; mip-common
    #:newstring

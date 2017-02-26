@@ -14,6 +14,8 @@
    #:MODTYPE
    #:regno
 
+   #:ATTR_MI
+
    #:stype
    #:stype-id
    #:stype-mod
@@ -41,6 +43,30 @@
 
    #:make-interpass_prolog
    #:interpass_prolog-ip_lblnum
+   #:UNDEF
+   #:BOOL
+   #:CHAR
+   #:UCHAR
+   #:SHORT
+   #:USHORT
+   #:INT
+   #:UNSIGNED
+   #:LONG
+   #:ULONG
+   #:LONGLONG
+   #:ULONGLONG
+   #:FLOAT
+   #:DOUBLE
+   #:LDOUBLE
+   #:STRTY
+   #:UNIONTY
+   #:XTYPE
+   #:VOID
+   #:PTR
+   #:FTN
+   #:ARY
+   #:CON
+   #:VOL
 
    ;; mip-common
    #:newstring
@@ -110,7 +136,10 @@
    #:SZDOUBLE
    #:SZLDOUBLE
    #:BOOL_TYPE
-   #:szty   
+   #:szty
+   #:TARGET_ENDIAN
+   #:TARGET_LE
+   #:TARGET_BE
    
    #:ALCHAR
    #:ALBOOL
@@ -345,3 +374,5 @@
 (defun ip_off (x) (interpass-_un x))
 (defun (setf ip_off) (val x) (setf (interpass-_un x) val))
 
+(defvar ATTR_MI (append '(:ATTR_NONE :GCC_ATYP_STDCALL :GCC_ATYP_CDECL)
+			ATTR_MI_TARGET))

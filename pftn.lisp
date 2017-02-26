@@ -44,10 +44,14 @@
 (defun (setf node-n_df) (val n) (setf (p1nd-n_df n) val))
 	     
 ;;#define tfree p1tfree
+(defun tfree (p) (p1tfree p))
 ;;#define nfree p1nfree
+(defun nfree (p) (p1nfree p))
 ;;#define ccopy p1tcopy
+(defun ccopy (p) (p1tcopy p))
 ;;#define flist p1flist
 ;;#define fwalk p1fwalk
+;(defun fwalk (a b c) (p1fwalk a b c))
 
 (defvar cftnsp nil)
 
@@ -76,6 +80,139 @@
   flags)
 
 (defvar rpole)
+
+(defun defid (q class)
+  (defid2 q class 0))
+
+(defun defid2 (q class astr)
+  "Declaration of an identifier.  Handles redeclarations, hiding,
+incomplete types and forward declarations.
+
+q is a TYPE node setup after parsing with n_type, n_df and n_ap.
+n_sp is a pointer to the not-yet initalized symbol table entry
+unless it's a redeclaration or supposed to hide a variable."
+  (when (null q) (return-from defid2)) ; an error was detected
+  #+GCC_COMPAT (gcc_modefix q)
+  (let ((p (node-n_sp q)))
+    (unless (symtab-sname p)
+      (_cerror "defining null identifier"))
+    #+PCC_DEBUG
+    (when (/= 0 ddebug)
+      (format t "defid(~a '~a'(~a), " (symtab-sname p) "soname" p)
+      (tprint (node-n_type q) (node-n_qual q))
+      (format t ", ~a, (~a)), level ~a~%~a"
+	      (scnames class)
+	      (node-n_df q)
+	      blevel
+	      #\Tab)
+      #+GCC_COMPAT (dump_attr (node-n_ap q)))
+    (fixtype q class)
+    (let ((type (node-n_type q))
+	  (qual (node-n_qual q)))
+      (setf class (fixclass class type))
+      (let ((stp (symtab-stype p))
+	    (stq (symtab-squal p))
+	    (slev (symtab-slevel p)))
+	#+PCC_DEBUG
+	(when (/= ddebug 0)
+	  (format t "        modified to ")	  
+	  (tprint type qual)
+	  (format t ", ~a~%", (scnames class))
+	  (format t "        previous def'n: ")
+	  (tprint stp stq)
+	  (format t ", ~a, (~a,~a)), level ~a\n",
+		  (scnames (symtab-sclass p)) (symtab-sdf p) (symtab-sap p)
+		  slev))
+	(when (= blevel 1)
+	  (case class
+	    ((MOS MOU) (_cerror "field5"))
+	    ((TYPEDEF PARAM))
+	    (otherwise
+	     (when (and (not (class-fieldp class))
+			(not (ISFTN type)))
+	       (uerror "declared argument ~a missing"
+		       (symtab-sname p))))))
+	(tagbody
+	   (cond
+	     ((equalp stp (make-stype :id 'UNDEF))
+	      (go enter)) ; New symbol
+	     ((not (equalp type stp))
+	      (go mismatch))
+	     ((and (> blevel slev)
+		   (member class '(AUTO REGISTER)))
+	      (go mismatch))) ;  new scope
+	   ;; test (and possibly adjust) dimensions.
+	   ;; also check that prototypes are correct.
+	   (let ((dsym 0) ; (symtab-sdf p))
+		 (ddef 0) ; (node-n_df q))
+		 changed)
+	     (do ((temp type (DECREF temp))) ((null (car (stype-mod temp))))
+	       (cond
+		 ((ISARY temp)
+		  ((cond
+		     ((eq (aref (symtab-sdf p) dsym) 'NOOFFSET)
+		      (setf (aref (symtab-sdf p) dsym)
+			    (aref (node-n_df q) ddef))
+		      (setf changed 1))
+		     ((/= (aref (symtab-sdf p) dsym)
+			  (aref (node-n_df q) ddef))
+		      (go mismatch))))
+		  (incf dsym)
+		  (incf ddef))
+		 ((ISFTN temp)
+		  ;; add a late-defined prototype here
+		  (when (and (not oldstyle)
+			     (null (aref (symtab-sdf p) dsym)))
+		    (setf (aref (symtab-sdf p) dsym)
+			  (aref (node-n_df q) ddef)))
+		  (when (and (not oldstyle)
+			     (aref (symtab-sdf p) dsym)
+			     (chkftn (aref (symtab-sdf p) dsym)
+				     (aref (node-n_df q) ddef)))
+		    (uerror "declaration doesn't match prototype"))
+		  (incf dsym)
+		  (incf ddef))))
+	     #+STABS
+	     (when (and changed gflag)
+	       (stabs_chgsym p)) ; symbol changed
+	     ;; check that redeclarations are to the same structure
+	     (when (and (null (stype-mod tem))
+			(member (stype-id temp) '(STRTY UNIONTY)))
+	       (unless (eq (strmemb (symtab-sap p)) (strmemb (node-n_ap q)))
+		 (go mismatch)))
+	     (let ((scl (symtab-sclass p)))
+	       #+PCC_DEBUG
+	       (when (/= ddebug 0)
+		 (format t "        previous class: ~a~%" (scnames scl)))
+	       
+	       ;;  Its allowed to add attributes to existing declarations.
+	       ;; * Be careful though not to trash existing attributes.
+	       ;; * XXX - code below is probably not correct.
+	       (cond
+		 ((and (symtab-sap p)
+		       (member (attr-atype (symtab-sap p)) <=ATTR_MAX))
+		  ;;  nothing special, just overwrite
+		  (setf (symtab-sap p) (node-n_ap q)))
+		 ((= (symtab-slevel p) blevel)
+		  (do ((ap (node-n_ap q) (attr-next ap))) ((null ap))
+		    (unless (member (attr-atype ap) <=ATTR_MAX)
+		      (setf (symtab-sap p) (attr_add (symtab-sap p)
+						     (attr_dup ap))))))
+		 (t (setf (symtab-sap p) (node-n_ap q))))
+	       (when (class-fieldp class)
+		 (_cerror "field1"))
+	       (case class
+		 (EXTERN
+		  (when astr (addsoname p astr))
+		  
+	       )
+	     
+		 
+		    
+		  
+	  
+	  
+  
 
 ;; basic attributes for structs and enums
 
@@ -424,14 +561,28 @@
 	 (_cerror "stack overflow"))
        (SETOFF noff al)
        (setf off (- noff)))
-      ((and (equalp (symtab-sclass p) 'PARAM)
+      ((and (eq (symtab-sclass p) 'PARAM)
 	    (null (stype-mod (symtab-stype p)))
 	    (member (stype-id (symtab-stype p))
 		    '(CHAR UCHAR SHORT USHORT BOOL)))
-       (setf off (upoff SZINT ALINT noff))))
-		  
+       (setf off (upoff SZINT ALINT noff))
+       (when (eq TARGET_ENDIAN 'TARGET_BE)
+	 (setf off (- noff tsz))))
+      (t
+       (setf off (upoff tsz al noff))))
+    (when (and (eq (symtab-sclass p) 'REGISTER)
+	       (null (stype-mod (symtab-stype p))))
+      ;; in case we are allocating stack space for register arguments
+      (cond
+	((eq (symtab-soffset p) 'NOOFSET)
+	 (setf (symtab-soffset p) off))
+	((/= (symtab-soffset p) off)
+	 (return-from oalloc t))))
     
-    (error "Unfinished")))
+    (case poff
+      (argoff (setf argoff noff))
+      (autooff (setf autooff noff)))
+    nil))
 
 (defun falloc (p w pty)
   (declare (type (or null symtab) p)

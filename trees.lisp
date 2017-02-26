@@ -204,12 +204,52 @@
       (when (member 'CVTL actions)
 	(setf p (convert p 'CVTL)))
       (error "Unfinished"))))
-      
+
 (defun putjops (p arg)
+  "Check if there will be a lost label destination inside of a ?:
+It cannot be reached so just print it out."
   (declare (ignore arg))
   (when (and (eq (p1nd-n_op p) 'COMOP)
 	     (eq (p1nd-n_op (p1nd-n_left p)) 'GOTO))
-    (plabel (+ (glval (p1nd-n_left (p1nd-n_left p))) 2))))	     
+    (plabel (+ (glval (p1nd-n_left (p1nd-n_left p))) 2))))
+
+(defun nametree (sp)
+  "Build a name node based on a symtab entry.
+broken out from buildtree()"
+  (declare (type symtab sp))
+  (let ((p (_block 'NAME nil nil
+		   (symtab-stype sp)
+		   (symtab-sdf sp)
+		   (symtab-sap sp))))
+    (setf (p1nd-n_qual p) (symtab-squal sp)
+	  (p1nd-n_sp p) sp)
+    #-NO_C_BUILTINS
+    (when (string= (subseq (symtab-sname sp) 0 10) "__builtin_")
+      (return-from sp p)) ; do not touch builtins here
+    (when (member 'STNODE (symtab-sflags sp))      
+      ;; Generated for optimizer
+      (setf (p1nd-n_op p) 'TEMP
+	    (p1nd-n_rval p) (symtab-soffset sp)))
+    #+GCC_COMPAT
+    ;; Get a label name
+    (when (and (eq (stype-id (symtab-sflags sp)) 'SLBLNAME)
+	       (null (stype-mod (symtab-sflags sp))))
+      (setf (symtab-stype sp) (make-stype :id 'VOID)
+	    (p1nd-n_type p) (symtab-stype sp)))
+    (when (equalp (symtab-stype sp) (make-stype :id 'UNDEF))
+      (uerror "~a undefined" (symtab-sname sp))
+      ;; make p look reasonable
+      (setf (p1nd-n_type p) (make-stype :id 'INT)
+	    (ptnd-n_df p) nil)
+      (defid p 'SNULL))
+    (when (eq (symtab-sclass sp) 'MOE)
+      (setf (p1nd-n_op p) 'ICON)
+      (slval p (symtab-soffset sp))
+      (set (p1nd-n_df p) nil
+	   (p1nd-n_sp p) nil))
+    (clocal p)))
+    
+    
 
 (defun concast (p _t)
   "Do an actual cast of a constant (if possible).
@@ -678,7 +718,7 @@ Returns 1 if handled, 0 otherwise."
 	  (symtab-sclass sp) 'AUTO
 	  (symtab-soffset sp) 'NOOFFSET)
     (oalloc sp 'autooff)
-    (error "Unfinished")))
+    (nametree sp)))
 
 (defun has_se (p)
   "Return t if an assignment is found"
