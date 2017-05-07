@@ -81,6 +81,9 @@
 
 (defvar rpole)
 
+(defvar arrstk (make-array '(10) :element-type 'node))
+(defvar arrstkp 0)
+
 (defun defid (q class)
   (defid2 q class 0))
 
@@ -94,7 +97,7 @@ unless it's a redeclaration or supposed to hide a variable."
   (when (null q) (return-from defid2)) ; an error was detected
   #+GCC_COMPAT (gcc_modefix q)
   (let ((p (node-n_sp q)))
-    (unless (symtab-sname p)
+    (when (string= (symtab-sname p) "")
       (_cerror "defining null identifier"))
     #+PCC_DEBUG
     (when (/= 0 ddebug)
@@ -113,6 +116,7 @@ unless it's a redeclaration or supposed to hide a variable."
       (let ((stp (symtab-stype p))
 	    (stq (symtab-squal p))
 	    (slev (symtab-slevel p)))
+	(declare (ignorable stq))
 	#+PCC_DEBUG
 	(when (/= ddebug 0)
 	  (format t "        modified to ")	  
@@ -132,31 +136,31 @@ unless it's a redeclaration or supposed to hide a variable."
 			(not (ISFTN type)))
 	       (uerror "declared argument ~a missing"
 		       (symtab-sname p))))))
-	(tagbody
-	   (cond
-	     ((equalp stp (make-stype :id 'UNDEF))
-	      (go enter)) ; New symbol
-	     ((not (equalp type stp))
-	      (go mismatch))
-	     ((and (> blevel slev)
-		   (member class '(AUTO REGISTER)))
-	      (go mismatch))) ;  new scope
-	   ;; test (and possibly adjust) dimensions.
-	   ;; also check that prototypes are correct.
-	   (let ((dsym 0) ; (symtab-sdf p))
-		 (ddef 0) ; (node-n_df q))
-		 changed)
+	(let ((dsym 0) ; (symtab-sdf p))
+	      (ddef 0) ; (node-n_df q))
+	      changed)
+	  (tagbody
+	     (cond
+	       ((equalp stp (make-stype :id 'UNDEF))
+		(go enter)) ; New symbol
+	       ((not (equalp type stp))
+		(go mismatch))
+	       ((and (> blevel slev)
+		     (member class '(AUTO REGISTER)))
+		(go mismatch))) ;  new scope
+	     ;; test (and possibly adjust) dimensions.
+	     ;; also check that prototypes are correct.
 	     (do ((temp type (DECREF temp))) ((null (car (stype-mod temp))))
 	       (cond
 		 ((ISARY temp)
-		  ((cond
-		     ((eq (aref (symtab-sdf p) dsym) 'NOOFFSET)
-		      (setf (aref (symtab-sdf p) dsym)
-			    (aref (node-n_df q) ddef))
+		  (cond
+		    ((eq (aref (symtab-sdf p) dsym) 'NOOFFSET)
+		     (setf (aref (symtab-sdf p) dsym)
+			   (aref (node-n_df q) ddef))
 		      (setf changed 1))
-		     ((/= (aref (symtab-sdf p) dsym)
-			  (aref (node-n_df q) ddef))
-		      (go mismatch))))
+		    ((/= (aref (symtab-sdf p) dsym)
+			 (aref (node-n_df q) ddef))
+		     (go mismatch)))
 		  (incf dsym)
 		  (incf ddef))
 		 ((ISFTN temp)
@@ -204,15 +208,149 @@ unless it's a redeclaration or supposed to hide a variable."
 	       (case class
 		 (EXTERN
 		  (when astr (addsoname p astr))
-		  
-	       )
+		  (case scl
+		    ((STATIC USTATIC)
+		     (when (= slev 0) (go done)))
+		    ((EXTDEF EXTERN) (go done))
+		    (SNULL
+		     (when (member 'SINLINE (stype-mod (symtab-sflags p)))
+		       (setf (symtab-sclass p) 'EXTDEF)
+		       (inline_ref p)
+		       (go done)))))
+		 (STATIC
+		  (when astr (addsoname p astr))
+		  (when (or (eq scl 'STATIC)
+			    (and (eq scl 'EXTERN) (= blevel 0)))
+		    (setf (symtab-sclass p) 'STATIC)
+		    (go done))
+		  (when (or changed
+			    (and (eq scl 'STATIC) (= blevel slev)))
+		    (go done))) ; identical redeclaration
+		 (USTATIC
+		  (when (member scl '(STATIC USTATIC))
+		    (go done)))
+		 (TYPEDEF
+		  (when (eq scl class) (go done)))
+		 ((MOU MOS) (_cerror "field6"))
+		 (EXTDEF
+		  (case scl
+		    (EXTERN
+		     (setf (symtab-sclass p) 'EXTDEF)
+		     (go done))
+		    (USTATIC
+		     (setf (symtab-sclass p) 'STATIC)
+		     (go done))
+		    (SNULL
+		     #+GCC_COMPAT
+		     ; Handle redeclarations of inlined functions.
+		     ; This is allowed if the previous declaration is of
+		     ; type gnu_inline.
+		     (when (attr_find (symtab-sap p) 'GCC_ATYP_GNU_INLINE)))))
+		 ((AUTO REGISTER) nil) ;  mismatch..
+		 (SNULL
+		  (when (and fun_inline (ISFTN type))
+		    (when (eq scl 'EXTERN)
+		      (setf (symtab-sclass p) 'EXTDEF)
+		      (inline_ref p)
+		      (go done))))))
+	   mismatch
+
+	     ;; Only allowed for automatic variables.
+	     (when (or (and (= blevel 2) (= slev))
+		       (<= blevel slev)
+		       (eq class 'EXTERN))
+	       (uerror "redeclaration of ~a" (symtab-sname p))
+	       (return-from defid2))
+	     (when (or (and (ISFTN (symtab-stype p)) (ISFTN type))
+		       (and (not (ISFTN (symtab-stype p)))
+			    (not (ISFTN type))))
+	       (warner Wshadow (symtab-sname p) (if (not
+						     (zerop
+						      (symtab-slevel p)))
+						    "local"
+						    "global")))
+	     (setf (node-sp q) (setf p (hide p)))
 	     
-		 
-		    
-		  
-	  
-	  
-  
+	   enter ;; make a new entry
+	     
+	     (when (and (equalp type (make-stype :id 'VOID))
+			(not (eq class 'TYPEDEF)))
+	       (uerror "void not allowed for variables"))
+	     
+	     #+PCC_DEBUG
+	     (unless (zerop ddebug)
+	       (format t "        new entry made~%"))
+	     
+	     (setf (symtab-stype p) type
+		   (symtab-squal p) qual
+		   (symtab-sclass p) class
+		   (symtab-slevel p) blevel
+		   (symtab-soffset p) 'NOOFFSET)
+	     (when (node-n_ap q)
+	       (setf (symtab-sap p) (attr_add (node-n_ap q)
+					      (symtab-sap p))))
+	     ;; copy dimensions
+	     (setf (symtab-sdf p) (node-n_df q))
+	     ;; Do not save param info for old-style functions
+	     (when (and (ISFTN type) oldstyle)
+	       (setf (symtab-sdf p) nil))
+	     (unless (zerop arrstkp) (evalidx p))
+	     ;; allocate offsets
+	     (if (class-fieldp class)
+		 (_cerror "field2") ;  new entry
+		 (case class
+		   (REGISTER
+		    (when astr
+		      (werror "no register assignment (yet)"))
+		    (setf (symtab-slass p) (setf class 'AUTO))
+		    (if (isdyn p)
+			(progn
+			  (pushnew 'SDYNARRAY (stype-mod (symtab-sflags p)))
+			  (dynalloc p))
+			(oalloc p 'autooff)))	     
+		   (AUTO
+		    (if (isdyn p)
+			(progn
+			  (pushnew 'SDYNARRAY (stype-mod (symtab-sflags p)))
+			  (dynalloc p))
+			(oalloc p 'autooff)))
+		   (PARAM
+		    (unless (and (eq (stype-id (p1nd-n_type q)) 'FARG)
+				 (null (stype-mod (p1nd-n_type q))))
+		      (oalloc p 'argoff)))
+		   ((STATIC EXTDEF EXTERN)
+		    (setf (symtab-soffset p) (getlab))
+		    (when astr (addsoname p astr)))
+		   (USTATIC
+		    (when astr (addsoname p astr)))
+		   ((MOU MOS)
+		    (_cerror "field7"))
+		   (SNULL
+		    #+notdef
+		    (when fun_inline
+		      (setf (symtab-slevel p) 1
+			    (symtab-soffset p) (getlab))))))
+	     
+	     #+STABS
+	     (when (and gflag
+			(not (and (eq (stype-id (symtab-stype p)) 'FARG)
+				  (null (stype-mod (symtab-stype p))))))
+	       (stabs_newsym p))
+	     
+	   done
+	     (fixdef p) ; Leave last word to target
+	     #-HAVE_WEAKREF
+	     (let ((at (attr_find (symtab-sap p) 'GCC_ATYP_WEAKREF)))
+	       ;; Refer renamed function
+	       (addsoname p (sarg at 0)))
+	     
+	     #+PCC_DEBUG
+	     (unless (zerop ddebug)
+	       (format t
+		       "       sdf, offset: ~a, ~a~%~a"
+		       (symtab-sdf p) (symtab-soffset p) #\Tab)
+	       #+GCC_COMPAT
+	       (dump_attr (symtab-sap p)))))))))
 
 ;; basic attributes for structs and enums
 

@@ -371,7 +371,7 @@
   (stype (make-stype :id 'UNDEF) :type stype) ; type
   (squal 0) ; qualifier
   (sdf nil :type (or integer symbol vector))  ; ptr to the dimension/prototype array
-  (sap nil :type list)) ; the base type attribute list
+  (sap nil :type (or null attr))) ; the base type attribute list
 
 (defun class-fieldp (x) (and (consp x) (eq (car x) 'FIELD)))
 (defun class-fldsiz (x) (cdr x))

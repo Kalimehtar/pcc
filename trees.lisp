@@ -225,8 +225,8 @@ broken out from buildtree()"
 	  (p1nd-n_sp p) sp)
     #-NO_C_BUILTINS
     (when (string= (subseq (symtab-sname sp) 0 10) "__builtin_")
-      (return-from sp p)) ; do not touch builtins here
-    (when (member 'STNODE (symtab-sflags sp))      
+      (return-from nametree p)) ; do not touch builtins here
+    (when (member 'STNODE (stype-mod (symtab-sflags sp)))
       ;; Generated for optimizer
       (setf (p1nd-n_op p) 'TEMP
 	    (p1nd-n_rval p) (symtab-soffset sp)))
@@ -245,8 +245,8 @@ broken out from buildtree()"
     (when (eq (symtab-sclass sp) 'MOE)
       (setf (p1nd-n_op p) 'ICON)
       (slval p (symtab-soffset sp))
-      (set (p1nd-n_df p) nil
-	   (p1nd-n_sp p) nil))
+      (setf (p1nd-n_df p) nil
+	    (p1nd-n_sp p) nil))
     (clocal p)))
     
     
