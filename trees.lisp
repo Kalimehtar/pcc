@@ -203,7 +203,208 @@
 	      (p1nd-n_ap p) (p1nd-n_ap q)))
       (when (member 'CVTL actions)
 	(setf p (convert p 'CVTL)))
-      (error "Unfinished"))))
+      (when (member 'CVTR actions)
+	(setf p (convert p 'CVTR)))
+      (when (member 'TYMATCH actions)
+	(setf p (tymatch p)))
+      (when (member 'PTMATCH actions)
+	(setf p (ptmatch p)))
+      (when (member 'OTHER actions)
+	(let ((l (p1nd-n_left p))
+	      (r (p1nd-n_right p)))
+	  (case o
+	    (NAME (_cerror "buildtree NAME"))
+	    (STREF
+	     ;; /* p->x turned into *(p+offset) */
+	     ;; /* rhs must be a name; check correctness */
+
+	     ;; Find member symbol struct
+	     (let (sp1 sp)
+	       (cond
+		 ((and (not (equalp (p1nd-n_type l)
+				    (make-stype :id 'STRTY :mod '(PTR))))
+		       (not (equalp (p1nd-n_type l)
+				    (make-stype :id 'UNIONTY :mod '(PTR)))))
+		  (uerror "struct or union required"))
+		 ((null (setf sp1 (strmemb (p1nd-n_ap l))))
+		  (uerror "undefined struct or union"))
+		 ((null (setf sp (findmember sp1 (p1nd-n_name r))))
+		  (uerror "member '~a' not declared" (p1nd-n_name r)))
+		 (t
+		  (setf (p1nd-n_sp r) sp
+			p (stref p))))))
+	    (UMUL
+	     (when (eq (p1nd-n_op l) 'ADDROF)
+	       (p1nfree p)
+	       (setf p (p1nfree l)))
+	     (unless (ISPTR (p1nd-n_type l)) (uerror "illegal indirection"))
+	     (setf
+	      (p1nd-n_type p) (DECREF (p1nd-n_type l))
+	      (p1nd-n_qual p) (DECREF (p1nd-n_qual l))
+	      (p1nd-n_df p)   (p1nd-n_df l)
+	      (p1nd-n_ap p)   (p1nd-n_ap l)))
+	    (ADDROF
+	     (case (p1nd-n_op l)
+	       (UMUL
+		(p1nfree p)
+		(setf p (p1nfree l))
+		(setf
+		 (p1nd-n_type p) (INCREF (p1nd-n_type l))
+		 (p1nd-n_qual p) (INCREF (p1nd-n_qual l))
+		 (p1nd-n_df p)   (p1nd-n_df l)
+		 (p1nd-n_ap p)   (p1nd-n_ap l)))
+	       ((TEMP NAME)
+		(setf
+		 (p1nd-n_type p) (INCREF (p1nd-n_type l))
+		 (p1nd-n_qual p) (INCREF (p1nd-n_qual l))
+		 (p1nd-n_df p)   (p1nd-n_df l)
+		 (p1nd-n_ap p)   (p1nd-n_ap l)))
+	       (COMOP
+		(p1nfree p)
+		(let ((lr (buildtree 'ADDROF (p1nd-n_right l) nil)))
+		  (setf p (buildtree 'COMOP (p1nd-n_left l) lr))
+		  (p1nfree l)))
+	       (QUEST
+		(let ((lr (buildtree 'ADDROF
+				     (p1nd-n_right (p1nd-n_right l))
+				     nil))
+		      (ll (buildtree 'ADDROF
+				     (p1nd-n_left (p1nd-n_right l))
+				     nil)))
+
+		  (p1nfree p)
+		  (p1nfree (p1nd-n_right l))
+		  (setf p (buildtree 'QUEST
+				     (p1nd-n_left l)
+				     (buildtree 'COLON ll lr))))
+		(p1nfree l))
+	       (t (uerror "unacceptable operand of &: ~a" (p1nd-n_op l)))))
+	    ((LR LS)
+	     ;; must make type size at least int...
+	     (when (null (stype-mod (p1nd-n_type p)))
+	       (cond
+		((member (stype-id (p1nd-n_type p)) '(CHAR SHORT))
+		 (setf (p1nd-n_left p) (makety l 'INT 0 0 0)))
+		((member (stype-id (p1nd-n_type p)) '(CHAR SHORT))
+		 (setf (p1nd-n_left p) (makety l 'UNSIGNED 0 0 0)))))
+
+	     (setf l (p1nd-n_left p)
+		   (p1nd-n_type p) (p1nd-n_type l)
+		   (p1nd-n_qual p) (p1nd-n_qual l)
+		   (p1nd-n_df p) (p1nd-n_df l)
+		   (p1nd-n_ap p) (p1nd-n_ap l))
+	     (when (> (tsize (p1nd-n_type r) (p1nd-n_df r) (p1nd-n_ap r))
+		      SZINT)
+	       (setf (p1nd-n_right p) (makety r 'INT 0 0 0))))
+	    ((RETURN ASSIGN CAST)
+	     ;; /* structure assignment */
+	     ;; /* take the addresses of the two sides; then make an
+	     ;; * operator using STASG and
+	     ;; * the addresses of left and right */
+
+	     (unless (eq (strmemb (p1nd-n_ap l)) (strmemb (p1nd-n_ap r)))
+	       (uerror "assignment of different structures"))
+	     (let* ((r (buildtree 'ADDROF r nil))
+		    (l (_block 'STASG l r (p1nd-n_type r)
+			       (p1nd-n_df r) (p1nd-n_ap r)))
+		    (l (clocal l)))
+	       (cond
+		 ((eq o 'RETURN)
+		  (p1nfree p)
+		  (setf p l))
+		 (t
+		  (setf (p1nd-n_op p) 'UMUL
+			(p1nd-n_left p) l
+			(p1nd-n_right p) nil)))))
+	    (QUEST ; /* fixup types of : */
+	     (unless (equalp (p1nd-n_type (p1nd-n_left r))
+			     (p1nd-n_type p))
+	       (setf (p1nd-n_left r)
+		     (makety (p1nd-n_left r) (p1nd-n_type p)
+			     (p1nd-n_qual p) (p1nd-n_df p) (p1nd-n_ap p))))
+	     (unless (equalp (p1nd-n_type (p1nd-n_right r))
+			     (p1nd-n_type p))
+	       (setf (p1nd-n_right r)
+		     (makety (p1nd-n_right r) (p1nd-n_type p)
+			     (p1nd-n_qual p) (p1nd-n_df p) (p1nd-n_ap p)))))
+	    (COLON ; structure colon
+	     (unless (eq (strmemb (p1nd-n_ap l)) (strmemb (p1nd-n_ap r)))
+	       (uerror "type clash in conditional")))
+	    (CALL
+	     (setf (p1nd-n_right p) (setf r (strargs (p1nd-n_right p)))
+		   p (funcode p))
+	     (unless (ISPTR (p1nd-n_type l))
+	       (uerror "illegal function"))
+	     (setf (p1nd-n_type p) (DECREF (p1nd-n_type l)))
+	     (unless (ISFTN (p1nd-n_type p))
+	       (uerror "illegal function"))
+	     (setf (p1nd-n_type p) (DECREF (p1nd-n_type p))
+		   (p1nd-n_df p) (1+ (p1nd-n_df l)) ; add one for prototypes
+		   (p1nd-n_ap p) (p1nd-n_ap l))
+	     (when (and (null (stype-mod (p1nd-n_type p)))
+			(member (stype-id (p1nd-n_type p)) '(STRTY UNIONTY)))
+	       ;; function returning structure
+	       ;; /*  make function really return ptr to str., with * */
+	       (setf (p1nd-n_op p) (ecase (p1nd-n_op p)
+				     (CALL 'STCALL)
+				     (UCALL 'USTCALL))
+		     (p1nd-n_type p) (INCREF (p1nd-n_type p))
+		     p (clocal p) ; before recursing
+		     p (buildtree 'UMUL p nil))))
+	    (UCALL
+	     (unless (ISPTR (p1nd-n_type l))
+	       (uerror "illegal function"))
+	     (setf (p1nd-n_type p) (DECREF (p1nd-n_type l)))
+	     (unless (ISFTN (p1nd-n_type p))
+	       (uerror "illegal function"))
+	     (setf (p1nd-n_type p) (DECREF (p1nd-n_type p))
+		   (p1nd-n_df p) (1+ (p1nd-n_df l)) ; add one for prototypes
+		   (p1nd-n_ap p) (p1nd-n_ap l))
+	     (when (and (null (stype-mod (p1nd-n_type p)))
+			(member (stype-id (p1nd-n_type p)) '(STRTY UNIONTY)))
+	       ;; function returning structure
+	       ;; /*  make function really return ptr to str., with * */
+	       (setf (p1nd-n_op p) (ecase (p1nd-n_op p)
+				     (CALL 'STCALL)
+				     (UCALL 'USTCALL))
+		     (p1nd-n_type p) (INCREF (p1nd-n_type p))
+		     p (clocal p) ; before recursing
+		     p (buildtree 'UMUL p nil))))
+	    (t (_cerror "other code ~a" o)))))
+
+      ;; fixup type in bit-field assignment
+      (when (and (eq (p1nd-n_op p) 'ASSIGN)
+		 (eq (p1nd-n_op l) 'FLD)
+		 (< (UPKFSZ (p1nd-n_rval l)) SZINT))
+	(setf p (makety p 'INT 0 0 0)))
+
+      ;; Allow (void)0 casts.
+      ;; * XXX - anything on the right side must be possible to cast.
+      ;; * XXX - remove void types further on.
+      (when (and (eq (p1nd-n_op p) 'CAST)
+		 (equalp (p1nd-n_type p) (make-stype :id 'VOID))
+		 (eq (p1nd-n_op (p1nd-n_right p)) 'ICON))
+	(setf (p1nd-n_type (p1nd-n_right p)) (make-stype :id 'VOID)))
+
+      (when (member 'CVTO actions)
+	(setf p (oconvert p)))
+      (setf p (clocal p))
+
+      #+PCC_DEBUG
+      (unless (zerop bdebug)
+	(format t "End of buildtree:~%")
+	(p1fwalk p eprint 0))
+
+      p)))
+
+(defun rewincop (p1 p2 op)
+  "Rewrite ++/-- to (t=p, p++, t) ops on types that do not act act as usual."
+  (declare (type p1nd p1 p2) (type symbol op))
+  (let* ((_t (cstknode (p1nd-n_type p1) (p1nd-n_df p1) (p1nd-n_ap p1)))
+	 (r (buildtree 'ASSIGN (p1tcopy _t) (p1tcopy p1)))
+	 (r (buildtree 'COMOP r (buildtree op p1 (eve p2)))))
+    (buildtree 'COMOP r t)))
+  
 
 (defun putjops (p arg)
   "Check if there will be a lost label destination inside of a ?:
@@ -240,7 +441,7 @@ broken out from buildtree()"
       (uerror "~a undefined" (symtab-sname sp))
       ;; make p look reasonable
       (setf (p1nd-n_type p) (make-stype :id 'INT)
-	    (ptnd-n_df p) nil)
+	    (p1nd-n_df p) nil)
       (defid p 'SNULL))
     (when (eq (symtab-sclass sp) 'MOE)
       (setf (p1nd-n_op p) 'ICON)
@@ -249,6 +450,17 @@ broken out from buildtree()"
 	    (p1nd-n_sp p) nil))
     (clocal p)))
     
+(defun ccast (p _t u df ap)
+  "Cast and complain if necessary by not inserining a cast."
+  (declare (type p1nd p)
+	   (ignore u))
+  ;; let buildtree do typechecking (and casting)
+  (let* ((q (_block 'NAME nil nil _t df ap))
+	 (p (buildtree 'ASSIGN q p)))
+    (p1nfree (p1nd-n_left p))
+    (setf q (optim (p1nd-n_right p)))
+    (p1nfree p)
+    q))
     
 
 (defun concast (p _t)
@@ -777,6 +989,18 @@ Returns 1 if handled, 0 otherwise."
 	 '(BITYPE ASGFLG))
 	(t (_cerror "cdope missing op ~a" op)))))
 
+(defun p1tcopy (p)
+  (declare (type p1nd p))
+  (let ((q (copy-structure p)))
+    (case (coptype (p1nd-n_op q))
+      (BITYPE
+       (setf (p1nd-n_right q) (p1tcopy (p1nd-n_right p))
+	     (p1nd-n_left q) (p1tcopy (p1nd-n_left p))))
+      (UTYPE
+       (setf (p1nd-n_left q) (p1tcopy (p1nd-n_left p)))))
+    q))
+
+
 ; node conventions:
 ;
 ;NAME:   rval>0 is stab index for external
@@ -795,6 +1019,10 @@ Returns 1 if handled, 0 otherwise."
     (_cerror "freeing blank node!"))
   (when (eq (p1nd-n_op p) 'FREE)
     (_cerror "freeing FREE node ~a" p))
+  #+PCC_DEBUG_NODES
+  (do ((q frelink (p1nd-n_left q))) ((null q))
+    (when (eq q p)
+      (_cerror "freeing free node ~a" p)))
   (when ndebug
     (format t "freeing node ~a~%" p))
   (let ((l (p1nd-n_left p)))

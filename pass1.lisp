@@ -100,6 +100,7 @@
    #:oalloc
    #:defid
    #:defid2
+   #:strmemb
 
    ;; symtabs
    #:lookup
@@ -119,6 +120,8 @@
    #:cqual
    #:tempnode
    #:nametree
+   #:p1tcopy
+   #:ccast
 
    ;; code
    #:fldty
@@ -378,7 +381,9 @@
 
 (defun ISSOU (ty) (member (stype-id ty) '(STRTY UNIONTY)))
 
-(defstruct n_u n_l n_r)
+(defstruct n_u
+  (n_l nil :type (or null integer p1nd))
+  (n_r nil :type (or null integer p1nd)))
 (defstruct n_f (n_u (make-n_u) :type n_u) _dcon _ccon)
 (defstruct p1nd 
   (n_op 'UNDEF :type symbol)
