@@ -3,6 +3,7 @@
   (:export
    #:INCREF
    #:DECREF
+   #:DECQAL
    #:BTYPE
    #:ISINTEGER
    #:SETOFF
@@ -140,6 +141,9 @@
    #:TARGET_ENDIAN
    #:TARGET_LE
    #:TARGET_BE
+   #:MAX_INT
+   #:MAX_USHORT
+   #:MAX_UCHAR
    
    #:ALCHAR
    #:ALBOOL

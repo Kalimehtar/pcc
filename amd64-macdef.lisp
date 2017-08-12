@@ -20,6 +20,10 @@
    #:TARGET_LE
    #:TARGET_BE
 
+   #:MAX_INT
+   #:MAX_UCHAR
+   #:MAX_USHORT
+
    #:ATTR_MI_TARGET
 
    #:ALCHAR

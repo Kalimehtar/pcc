@@ -303,7 +303,10 @@
    #:szty
    #:TARGET_ENDIAN
    #:TARGET_LE
-   #:TARGET_BE   
+   #:TARGET_BE
+   #:MAX_INT
+   #:MAX_USHORT
+   #:MAX_UCHAR
    
    #:ALCHAR
    #:ALBOOL

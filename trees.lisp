@@ -726,7 +726,64 @@ Returns 1 if handled, 0 otherwise."
     #+GCC_COMPAT (attr_find (p1nd-n_ap r) 'GCC_ATYP_PACKED)
     #-GCC_COMPAT nil)
 	  (p (pconvert p)))
-      (error "Unfinished"))))
+      ;; make p look like ptr to x
+      (unless (ISPTR (p1nd-n_type p))
+	(setf (p1nd-n_type p) (make-stype :id 'UNIONTY :mod '((PTR)))))
+      (let ((_t (INCREF (symtab-stype s)))
+	    (q (INCQAL (symtab-squal s)))
+	    (d (symtab-sdf s))
+	    (ap (symtab-sap s))
+	    yap)
+	#+GCC_COMPAT
+	(cond
+	  ((setf yap (attr_find ap 'GCC_ATYP_PACKED))
+	   (setf xap yap))
+	  (xap
+	   ;; xap set if packed struct
+	   (setf ap (attr_add ap (attr_dup xap)))))
+
+	(setf p (makety p _t q d ap))
+	;; compute the offset to be added
+	(let ((off (symtab-soffset s))
+	      (dsc (symtab-sclass s)))
+	  (if (class-fieldp dsc)
+	      (let* ((ftyp (symtab-stype s))
+		     (fal (talign ftyp ap))
+		     (fsz (class-fldsiz dsc)))
+		(setf off (* (floor off fal) fal)
+		      p (offplus p off _t q d ap)
+		      p (_block 'FLD p nil ftyp 0 ap)
+		      (p1nd-n_qual p) q
+		      (p1nd-n_rval p) (PKFIELD fsz
+					       (mod (symtab-soffset s) fal)))
+		;; make type int or some other signed type
+		(cond
+		  ((< fsz SZINT) (setf ftyp (make-stype :id 'INT)))
+		  ((and (< SZINT fsz SZLONG)
+			(stype> (make-stype :id 'LONG) ftyp))
+		   (setf ftyp (make-stype :id 'LONG)))
+		  ((and (< SZLONG fsz SZLONGLONG)
+			(stype> (make-stype :id 'LONGLONG) ftyp))
+		   (setf ftyp (make-stype :id 'LONGLONG))))
+		(unless (equalp ftyp (p1nd-n_type p))
+		  (setf p (makety p ftyp 0 0 0))))
+	      (setf p (offplus p off _t q d ap)))))))
+  (setf p (clocal p))
+  p)
+
+(defun notlval (p)
+  "return nil if p an lvalue, t otherwise"
+  (declare (type p1nd p))
+  (tagbody
+   again
+     (case (p1nd-n_op p)
+       (FLD (setf p (p1nd-n_left p))
+	    (go again))
+       ((NAME OREG UMUL)
+	(or (ISARY (p1nd-n_type p)) (ISFTN (p1nd-n_type p))))
+       ((TEMP REG)
+	nil)
+       (t t))))
 
 (defun bcon (i)
   "make a constant node with value i"
@@ -1065,6 +1122,25 @@ Returns 1 if handled, 0 otherwise."
   "set PROG-seg label"
   (setf reached 1) ; /* Will this always be correct? */
   (send_passt 'IP_DEFLAB label))
+
+(defun intprom (n)
+  "Perform integer promotion on node n."
+  (declare (type p1nd n))
+  (cond
+    ((and (eq (p1nd-n_op n) 'FLD)
+	  (< (UPKFSZ (p1nd-n_rval n)) SZINT))
+     (makety n 'INT 0 0 0))
+    ((and (null (stype-mod (p1nd-n_type n)))
+	  (member (stype-id (p1nd-n_type n))
+		  '(CHAR UCHAR SHORT USHORT BOOL)))
+     (if (or (and (eq (stype-id (p1nd-n_type n)) 'UCHAR)
+		  (> MAX_UCHAR MAX_INT))
+	     (and (eq (stype-id (p1nd-n_type n)) 'USHORT)
+		  (> MAX_USHORT MAX_INT)))
+	 (makety n 'UNSIGNED 0 0 0)
+	 (makety n 'INT 0 0 0)))
+    (t n)))
+
 
 (defun cqual (_t q)
   "Return CON/VOL/null, whichever are active for the current type."
